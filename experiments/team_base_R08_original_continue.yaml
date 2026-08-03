@@ -1,0 +1,231 @@
+# Team common base: continue from R08 using the original R08 environment.
+#
+# Based on: 007_R08_r1.yaml
+# Changed for team use:
+# - output.tag is renamed so new runs do not overwrite/confuse the R08 source.
+# - runtime.init_bundle loads the R08 learned policy weights.
+#
+# Team rule:
+# - Copy this YAML for each experiment.
+# - Change output.tag.
+# - Change only your assigned env_config.reward parameters.
+
+name: team_base_R08_original_continue
+script: train_rllib
+
+output:
+  name: highdream
+  tag: team_base_R08_original_continue_v1_2
+
+env:
+  observation_mode: tactical16
+  target_mode: loiter
+  target_behavior_dll: AIP_BASE_target.dll
+  reward_module: student.my_reward
+  max_engage_time: 60.0
+  episode_step_limit: 3600
+
+env_config:
+  step_ratio: 6
+  randomization:
+    enabled: false
+
+  initial_scenario:
+    mode: scenario_pool
+    scenarios:
+      - name: level_5000
+        weight: 0.3
+        ownship:
+          - 1000.0
+          - 0.0
+          - -5000.0
+          - 0.0
+          - 0.0
+          - 0.0
+          - 280.0
+        target:
+          - 6000.0
+          - 0.0
+          - -5000.0
+          - 0.0
+          - 0.0
+          - 180.0
+          - 260.0
+        target_mode: loiter
+        target_loiter:
+          enabled: true
+          bank: 0.0
+          pitch: 0.0
+      - name: mild_dive_4000
+        weight: 0.35
+        ownship:
+          - 1000.0
+          - 0.0
+          - -4000.0
+          - 10.0
+          - -8.0
+          - 10.0
+          - 280.0
+        target:
+          - 6000.0
+          - 0.0
+          - -4800.0
+          - 0.0
+          - 0.0
+          - 180.0
+          - 260.0
+        target_mode: loiter
+        target_loiter:
+          enabled: true
+          bank: 0.0
+          pitch: 0.0
+      - name: low_dive_3500
+        weight: 0.2
+        ownship:
+          - 1000.0
+          - 0.0
+          - -3500.0
+          - 12.0
+          - -12.0
+          - -10.0
+          - 275.0
+        target:
+          - 5500.0
+          - 0.0
+          - -4600.0
+          - 0.0
+          - 0.0
+          - 180.0
+          - 255.0
+        target_mode: loiter
+        target_loiter:
+          enabled: true
+          bank: 0.0
+          pitch: 0.0
+      - name: banked_descent_3800
+        weight: 0.15
+        ownship:
+          - 1000.0
+          - 0.0
+          - -3800.0
+          - 35.0
+          - -8.0
+          - 20.0
+          - 275.0
+        target:
+          - 5500.0
+          - 500.0
+          - -4600.0
+          - 0.0
+          - 0.0
+          - 180.0
+          - 255.0
+        target_mode: loiter
+        target_loiter:
+          enabled: true
+          bank: 0.0
+          pitch: 0.0
+    ownship_randomization:
+      enabled: true
+      radius: 80.0
+      r_roll: 3.0
+      r_pitch: 2.0
+      r_heading: 5.0
+      speed_mps: 5.0
+    target_randomization:
+      enabled: true
+      radius: 80.0
+      r_heading: 3.0
+      speed_mps: 4.0
+
+  reward:
+    step_penalty: -0.003
+    survival_bonus: 0.0
+    too_close_m: 460.0
+    ideal_range_min_m: 450.0
+    ideal_range_max_m: 1100.0
+    range_scale: 0.8
+    overshoot_penalty: 4.0
+    overshoot_quadratic_scale: 1.5
+    inside_min_range_penalty: -3.0
+    ata_scale: 0.12
+    aa_scale: 0.03
+    wez_bonus: 0.5
+    damage_scale: 20.0
+    altitude_soft_floor_m: 3000.0
+    altitude_hard_floor_m: 1000.0
+    low_altitude_penalty: 0.9
+    very_low_altitude_penalty: 2.88
+    altitude_bonus_high_min_m: 3000.0
+    altitude_bonus_high_max_m: 9000.0
+    altitude_bonus_mid_min_m: 1000.0
+    altitude_bonus_high: 0.6
+    altitude_bonus_mid: 0.25
+    nose_down_altitude_m: 3800.0
+    nose_down_pitch_deg: -8.0
+    nose_down_penalty: -1.4
+    roll_limit_deg: 80.0
+    roll_limit_penalty: 0.15
+    pitch_down_limit_deg: -12.0
+    pitch_down_penalty: 1.2
+    pitch_up_limit_deg: 35.0
+    pitch_up_penalty: 0.25
+    attack_range_min_m: 250.0
+    attack_range_max_m: 1500.0
+    attack_range_bonus: 0.2
+    far_range_penalty_start_m: 3500.0
+    far_range_penalty: 0.25
+    win_reward: 100.0
+    loss_reward: -100.0
+    draw_reward: -30.0
+    crash_penalty: -280.0
+
+algo:
+  name: sac
+  framework: torch
+  lr: 0.0003
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 10000
+  mlp:
+    enabled: true
+    fcnet_hiddens:
+      - 256
+      - 256
+    fcnet_activation: relu
+    head_fcnet_hiddens: []
+    head_fcnet_activation: relu
+
+runtime:
+  iterations: 5
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 0
+  save_native_checkpoint: false
+  native_checkpoint_frequency: 0
+  init_bundle: artifacts/models/highdream/altitude_c05_refine_v1_validation_R08_r1_150iter
+
+dashboard:
+  enabled: true
+  logdir: artifacts/dashboard
+
+policy_probe:
+  enabled: true
+  interval: 10
+  steps: 4
+  print: false
+
+engagement_log:
+  enabled: true
+  interval: 30
+  steps: 1200
+  episodes: 2
+  print: false
+
+notes: R08 original scenario/reward continued from R08 learned policy weights.

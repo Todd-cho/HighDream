@@ -1,0 +1,145 @@
+# ============================================================
+# AIP Team Training repository
+# Track team code/configuration; exclude generated and licensed binaries.
+# ============================================================
+
+# Python cache and tooling
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+.env
+.env.*
+!.env.example
+
+# IDE and OS files
+.vscode/
+.idea/
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# Temporary/editor files
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+
+# Ray/RLlib generated state
+ray_results/
+.ray/
+/tmp/
+
+# Training artifacts: ignore large/generated content by default
+/artifacts/**
+
+# Keep only compact team-comparison summaries
+!/artifacts/altitude_native_curriculum_v1/
+/artifacts/altitude_native_curriculum_v1/**
+!/artifacts/altitude_native_curriculum_v1/pipeline_state.json
+!/artifacts/altitude_native_curriculum_v1/screen_results.csv
+!/artifacts/altitude_native_curriculum_v1/stage_results.csv
+
+!/artifacts/altitude_attack_followup_v1/
+/artifacts/altitude_attack_followup_v1/**
+!/artifacts/altitude_attack_followup_v1/pipeline_state.json
+!/artifacts/altitude_attack_followup_v1/attack_stage_results.csv
+
+# Never commit models, native checkpoints, replay/log output or backups
+/artifacts/models/
+/artifacts/checkpoints/
+/artifacts/logs/
+/artifacts/dashboard/
+/artifacts/records/
+/artifacts/release_merge_backups/
+
+# Native libraries and compiled binaries supplied with the official release
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+
+# Official simulator/data directories: each member should install Release_260727
+/aircraft/
+/engine/
+/assets/
+/RLLibLstm/
+
+# Official Release root launchers/wrappers (not team-owned overlay code)
+/DogFightEnvWrapper.py
+/FighterSim.py
+/GeoMathUtil.py
+/JSBSimWrapper.py
+/Rule_forTraining.xml
+/run_local_dogfight.py
+/run_unreal_inference.py
+
+# Official experiment examples already included in Release_260727
+/experiments/student_mixed_initial_sac_lstm.yaml
+/experiments/student_mixed_initial_sac_mlp.yaml
+/experiments/student_ppo_lstm.yaml
+/experiments/student_ppo_mlp.yaml
+/experiments/student_sac_lstm.yaml
+/experiments/student_sac_mlp.yaml
+
+# Official simulator initialization files under scripts
+/scripts/f15_cruise.xml
+/scripts/f16_cruise
+/scripts/f16_cruise.xml
+/scripts/fa50_cruise.xml
+
+# Official source is supplied by Release_260727. Track only our patched files.
+/src/**
+!/src/dogfight/
+/src/dogfight/**
+!/src/dogfight/ai/
+/src/dogfight/ai/**
+!/src/dogfight/ai/rllib_utils.py
+!/src/dogfight/envs/
+/src/dogfight/envs/**
+!/src/dogfight/envs/single_agent_env.py
+
+# Official dashboard/viewer is supplied unchanged by Release_260727.
+/tools/
+
+# Package/build output
+build/
+dist/
+*.egg-info/
+
+# Node dependencies (dashboard/tool development)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local notebooks and generated notebook checkpoints
+.ipynb_checkpoints/
+
+# Optional local archives and model exports
+*.zip
+*.7z
+*.tar
+*.tar.gz
+*.pkl
+*.pkl.gz
+*.pt
+*.pth
+*.onnx
+
+# Local-only notes that may contain machine-specific absolute paths
+내 실험.txt
+reward.txt

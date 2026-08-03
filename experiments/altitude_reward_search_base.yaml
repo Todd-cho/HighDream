@@ -1,0 +1,67 @@
+name: altitude_reward_search_base
+script: train_rllib
+
+output:
+  name: highdream
+  tag: altitude_reward_search_base
+
+env:
+  observation_mode: tactical16
+  target_mode: autopilot
+  target_behavior_dll: AIP_BASE_target.dll
+  reward_module: student.my_reward
+  max_engage_time: 60.0
+  episode_step_limit: 3600
+
+# The automation copies MY_SCENARIO_POOL and the complete reward candidate here.
+env_config:
+  step_ratio: 6
+  randomization:
+    enabled: false
+
+algo:
+  name: sac
+  framework: torch
+  lr: 3.0e-4
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 10000
+  mlp:
+    enabled: true
+    fcnet_hiddens: [256, 256]
+    fcnet_activation: relu
+    head_fcnet_hiddens: []
+    head_fcnet_activation: relu
+
+runtime:
+  iterations: 30
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 0
+  save_native_checkpoint: false
+  native_checkpoint_frequency: 0
+
+dashboard:
+  enabled: true
+  logdir: artifacts/dashboard
+
+policy_probe:
+  enabled: true
+  interval: 10
+  steps: 4
+  print: false
+
+engagement_log:
+  enabled: false
+  interval: 20
+  steps: 1800
+  episodes: 2
+  print: false
+
+notes: "Controlled Release-260721 scenario-pool search for altitude reward parameters."
