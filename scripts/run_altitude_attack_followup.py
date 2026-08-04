@@ -49,9 +49,14 @@ ATTACK_STAGES = [
         "iterations": 180,
         "reward": {
             "attack_range_max_m": 2500.0,
-            "attack_range_bonus": 0.30,
+            # 2026-08-04: bumped from 0.30/0.35 (weak placeholders that failed the
+            # distance gate at 11977m) to the values already validated in the
+            # ata_scale bisection (stage5_ata015_150iter etc.: crash 5%, dist 8913m
+            # on this exact mixed scenario pool).
+            "attack_range_bonus": 0.9,
             "far_range_penalty_start_m": 4000.0,
-            "far_range_penalty": 0.35,
+            "far_range_penalty": 1.05,
+            "ata_scale": 0.15,
         },
         "crash_max": 0.20,
         "altitude_min": 1800.0,
@@ -67,7 +72,7 @@ ATTACK_STAGES = [
             "attack_range_bonus": 0.45,
             "far_range_penalty_start_m": 3500.0,
             "far_range_penalty": 0.45,
-            "ata_scale": 0.16,
+            "ata_scale": 0.15,
             "aa_scale": 0.04,
             "wez_bonus": 1.0,
         },

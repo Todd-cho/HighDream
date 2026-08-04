@@ -159,7 +159,10 @@ def build_experiment(
     env_config["initial_scenario"] = copy.deepcopy(pool)
     env_config["randomization"] = {"enabled": False}
     reward = dict(MY_REWARD_CONFIG)
-    reward.update({key: params[key] for key in PARAMETER_KEYS})
+    # Apply every key in params, not just PARAMETER_KEYS: callers outside this
+    # module's own altitude sweep (e.g. run_altitude_attack_followup.py's Stage
+    # 5/6) pass range/attack keys too, and those were being silently dropped.
+    reward.update(params)
     env_config["reward"] = reward
     if validation:
         engagement = experiment.setdefault("engagement_log", {})

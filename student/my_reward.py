@@ -93,7 +93,9 @@ def compute_reward(
     ideal_mid = 0.5 * (ideal_min + ideal_max)
     ideal_half_width = max(1.0, 0.5 * (ideal_max - ideal_min))
     range_score = 1.0 - abs(distance - ideal_mid) / ideal_half_width
-    components["range"] = float(cfg["range_scale"]) * max(-1.0, range_score)
+    # Floor lowered -1.0 -> -4.0 (승현 fix): keeps the off-ideal-range penalty from
+    # flattening out too early, matching the far_range saturation fix below.
+    components["range"] = float(cfg["range_scale"]) * max(-4.0, range_score)
 
     if distance < float(cfg["too_close_m"]):
         ratio = _clamp01(1.0 - distance / max(1.0, float(cfg["too_close_m"])))
@@ -177,9 +179,14 @@ def compute_reward(
         else 0.0
     )
     far_start = float(cfg["far_range_penalty_start_m"])
+    # 승현 fix: span was far_start (saturates at 2x far_start, ~7000m at our
+    # defaults - well inside the 7-13km observed engagement range, killing the
+    # approach gradient). Default span widened to far_start*6 so the penalty keeps
+    # climbing out to ~24.5km; override via far_range_penalty_span_m in YAML.
+    far_span = float(cfg.get("far_range_penalty_span_m", far_start * 6.0))
     components["far_range"] = (
         -float(cfg["far_range_penalty"])
-        * _clamp01((distance - far_start) / max(1.0, far_start))
+        * _clamp01((distance - far_start) / max(1.0, far_span))
         if distance > far_start
         else 0.0
     )
