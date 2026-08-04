@@ -143,3 +143,5 @@ yarn-error.log*
 # Local-only notes that may contain machine-specific absolute paths
 내 실험.txt
 reward.txt
+# Local AI assistant settings
+.claude/

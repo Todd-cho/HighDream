@@ -92,8 +92,6 @@ def build_algorithm_config(algorithm_name: str, env_name: str, env_config: dict,
         config = _apply_mlp_model_config(config, args)
 
     config = config.environment(env_name, env_config=env_config).framework(args["framework"])
-    if args.get("seed") is not None:
-        config = config.debugging(seed=int(args["seed"]))
 
     if hasattr(config, "env_runners"):
         runner_args = {

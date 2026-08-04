@@ -147,11 +147,6 @@ SAC LSTM은 RLlib 패치가 필요한 고급 경로로 분리해 사용합니다
 | 4-13 | `two_circle_headon_a***` | alpha 투서클 헤드온 |
 | 14 | `full_dogfight` | BT 상대 전면 교전 |
 
-초기 위치·자세 randomization 범위가 `0` 이하이면 해당 축의 offset을 `0`으로
-처리합니다. 따라서 Stage 0처럼 `enabled: true`, `radius: 0.0`으로 위치를 고정하고
-자세만 랜덤화하는 설정도 `ValueError: high <= 0` 없이 실행됩니다. 양수 범위는 환경
-seed를 사용하는 대칭 uniform 분포에서 샘플링됩니다.
-
 학생 curriculum 사용:
 
 ```powershell

@@ -1,6 +1,0 @@
-{
-  "status": "stopped",
-  "source_checkpoint": "C:\\Users\\2bpro\\Desktop\\Release_v2_altitude\\Release_v2\\artifacts\\checkpoints\\highdream\\altitude_native_curriculum_v1_stage4_banked_descent_recovery_C10\\checkpoint_final",
-  "completed_stage": 4,
-  "stop_reason": "Attack stage 5 failed its safety/engagement gate."
-}
