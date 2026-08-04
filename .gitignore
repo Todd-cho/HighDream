@@ -57,6 +57,23 @@ ray_results/
 !/artifacts/altitude_attack_followup_v1/pipeline_state.json
 !/artifacts/altitude_attack_followup_v1/attack_stage_results.csv
 
+# Team-shared lightweight bundles (actor weights only, no checkpoint/replay
+# state) for cross-machine comparison. Only put finalized candidates here.
+!/artifacts/models_shared/
+/artifacts/models_shared/**
+!/artifacts/models_shared/README.md
+!/artifacts/models_shared/*/
+!/artifacts/models_shared/*/metadata.json
+!/artifacts/models_shared/*/policy_weights.pkl.gz
+
+# Team-shared native checkpoints for continued training. Only checkpoint_final
+# (not intermediate checkpoint_NNNNNN snapshots) — keeps repo size small.
+!/artifacts/checkpoints_shared/
+/artifacts/checkpoints_shared/**
+!/artifacts/checkpoints_shared/*/
+!/artifacts/checkpoints_shared/*/checkpoint_final/
+!/artifacts/checkpoints_shared/*/checkpoint_final/**
+
 # Never commit models, native checkpoints, replay/log output or backups
 /artifacts/models/
 /artifacts/checkpoints/
@@ -139,7 +156,12 @@ yarn-error.log*
 *.pt
 *.pth
 *.onnx
+!/artifacts/models_shared/*/policy_weights.pkl.gz
+!/artifacts/checkpoints_shared/**/*.pkl
+!/artifacts/checkpoints_shared/**/*.json
 
 # Local-only notes that may contain machine-specific absolute paths
 내 실험.txt
 reward.txt
+# Local AI assistant settings
+.claude/
