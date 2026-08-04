@@ -781,9 +781,6 @@ class CurriculumTrainer:
         print(f"{'='*60}")
 
         stage_env_config = build_stage_env_config(self.base_env_config, stage)
-        stage_env_config["episode_summary_path"] = str(
-            self.curriculum_dir / f"episode_summary_stage_{stage.index:02d}.csv"
-        )
         env_name = f"dogfight-curriculum-stage{stage.index}"
         register_env(env_name, env_creator)
 

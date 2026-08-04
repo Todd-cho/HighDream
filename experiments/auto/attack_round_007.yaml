@@ -1,0 +1,208 @@
+algo:
+  framework: torch
+  gamma: 0.99
+  lr: 0.0003
+  minibatch_size: 256
+  mlp:
+    enabled: true
+    fcnet_activation: relu
+    fcnet_hiddens:
+    - 256
+    - 256
+    head_fcnet_activation: relu
+    head_fcnet_hiddens: []
+  name: sac
+  replay_buffer_capacity: 10000
+  target_entropy: auto
+  tau: 0.005
+  train_batch_size: 256
+dashboard:
+  enabled: true
+  logdir: artifacts/dashboard
+engagement_log:
+  enabled: true
+  episodes: 2
+  interval: 30
+  print: false
+  steps: 1200
+env:
+  episode_step_limit: 3600
+  max_engage_time: 60.0
+  observation_mode: tactical16
+  reward_module: student.my_reward
+  target_behavior_dll: AIP_BASE_target.dll
+  target_mode: loiter
+env_config:
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization:
+      enabled: true
+      r_heading: 5.0
+      r_pitch: 2.0
+      r_roll: 3.0
+      radius: 80.0
+      speed_mps: 5.0
+    scenarios:
+    - name: level_5000
+      ownship:
+      - 1000.0
+      - 0.0
+      - -5000.0
+      - 0.0
+      - 0.0
+      - 0.0
+      - 280.0
+      target:
+      - 6000.0
+      - 0.0
+      - -5000.0
+      - 0.0
+      - 0.0
+      - 180.0
+      - 260.0
+      target_loiter:
+        bank: 0.0
+        enabled: true
+        pitch: 0.0
+      target_mode: loiter
+      weight: 0.3
+    - name: mild_dive_4000
+      ownship:
+      - 1000.0
+      - 0.0
+      - -4000.0
+      - 10.0
+      - -8.0
+      - 10.0
+      - 280.0
+      target:
+      - 6000.0
+      - 0.0
+      - -4800.0
+      - 0.0
+      - 0.0
+      - 180.0
+      - 260.0
+      target_loiter:
+        bank: 0.0
+        enabled: true
+        pitch: 0.0
+      target_mode: loiter
+      weight: 0.35
+    - name: low_dive_3500
+      ownship:
+      - 1000.0
+      - 0.0
+      - -3500.0
+      - 12.0
+      - -12.0
+      - -10.0
+      - 275.0
+      target:
+      - 5500.0
+      - 0.0
+      - -4600.0
+      - 0.0
+      - 0.0
+      - 180.0
+      - 255.0
+      target_loiter:
+        bank: 0.0
+        enabled: true
+        pitch: 0.0
+      target_mode: loiter
+      weight: 0.2
+    - name: banked_descent_3800
+      ownship:
+      - 1000.0
+      - 0.0
+      - -3800.0
+      - 35.0
+      - -8.0
+      - 20.0
+      - 275.0
+      target:
+      - 5500.0
+      - 500.0
+      - -4600.0
+      - 0.0
+      - 0.0
+      - 180.0
+      - 255.0
+      target_loiter:
+        bank: 0.0
+        enabled: true
+        pitch: 0.0
+      target_mode: loiter
+      weight: 0.15
+    target_randomization:
+      enabled: true
+      r_heading: 3.0
+      radius: 80.0
+      speed_mps: 4.0
+  randomization:
+    enabled: false
+  reward:
+    aa_scale: 0.03
+    altitude_bonus_high: 0.6
+    altitude_bonus_high_max_m: 9000.0
+    altitude_bonus_high_min_m: 3000.0
+    altitude_bonus_mid: 0.25
+    altitude_bonus_mid_min_m: 1000.0
+    altitude_hard_floor_m: 1600.0
+    altitude_soft_floor_m: 4500.0
+    ata_scale: 0.1
+    attack_range_bonus: 0.4
+    attack_range_max_m: 1000.0
+    attack_range_min_m: 250.0
+    crash_penalty: -280.0
+    damage_scale: 20.0
+    draw_reward: -30.0
+    far_range_penalty: 0.55
+    far_range_penalty_start_m: 1800.0
+    ideal_range_max_m: 1100.0
+    ideal_range_min_m: 450.0
+    inside_min_range_penalty: -3.0
+    loss_reward: -100.0
+    low_altitude_penalty: 2.0
+    nose_down_altitude_m: 3800.0
+    nose_down_penalty: -1.4
+    nose_down_pitch_deg: -8.0
+    overshoot_penalty: 4.0
+    overshoot_quadratic_scale: 1.5
+    pitch_down_limit_deg: -6.0
+    pitch_down_penalty: 2.0
+    pitch_up_limit_deg: 27.0
+    pitch_up_penalty: 0.45
+    range_scale: 0.8
+    roll_limit_deg: 60.0
+    roll_limit_penalty: 0.35
+    step_penalty: -0.003
+    survival_bonus: 0.0
+    too_close_m: 460.0
+    very_low_altitude_penalty: 5.0
+    wez_bonus: 0.05
+    win_reward: 100.0
+  step_ratio: 6
+name: team_base_R08_original_continue
+notes: auto_tune(attack-only) round 7. init_bundle=artifacts/models/highdream/auto_attack_r006
+output:
+  name: highdream
+  tag: auto_attack_r007
+policy_probe:
+  enabled: true
+  interval: 10
+  print: false
+  steps: 4
+runtime:
+  batch_mode: truncate_episodes
+  init_bundle: artifacts/models/highdream/auto_attack_r006
+  iterations: 200
+  lightweight_bundle_frequency: 25
+  native_checkpoint_frequency: 0
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  save_lightweight_bundle: true
+  save_native_checkpoint: false
+script: train_rllib

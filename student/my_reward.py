@@ -1,5 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Curriculum-ready reward for altitude-safe gun training."""
+"""Config-driven student reward for gun-kill training.
+
+Keep this file as the shared reward engine. For most experiments, change only
+MY_REWARD_CONFIG or override values from experiment YAML under env_config.reward.
+"""
 from __future__ import annotations
 
 import sys
@@ -15,8 +19,14 @@ from dogfight.sim.state_schema import StateIndex
 
 
 MY_REWARD_CONFIG = {
+    # ---------------------------------------------------------------------
+    # 1) Common pacing
+    # ---------------------------------------------------------------------
     "step_penalty": -0.003,
-    "survival_bonus": 0.0,
+
+    # ---------------------------------------------------------------------
+    # 2) Range keeping
+    # ---------------------------------------------------------------------
     "too_close_m": 460.0,
     "ideal_range_min_m": 450.0,
     "ideal_range_max_m": 1100.0,
@@ -24,39 +34,64 @@ MY_REWARD_CONFIG = {
     "overshoot_penalty": 4.0,
     "overshoot_quadratic_scale": 1.5,
     "inside_min_range_penalty": -3.0,
+
+    # ---------------------------------------------------------------------
+    # 3) Aim / geometry
+    # ---------------------------------------------------------------------
     "ata_scale": 0.12,
     "aa_scale": 0.03,
+
+    # ---------------------------------------------------------------------
+    # 4) Gun WEZ / damage
+    # ---------------------------------------------------------------------
     "wez_bonus": 0.5,
     "damage_scale": 20.0,
-    # Round-3 baseline: best repeatable altitude-safety starting point.
-    "altitude_soft_floor_m": 3800.0,
-    "altitude_hard_floor_m": 1800.0,
-    "low_altitude_penalty": 1.76,
-    "very_low_altitude_penalty": 5.49,
-    "altitude_bonus_high_min_m": 2100.0,
-    "altitude_bonus_high_max_m": 9000.0,
-    "altitude_bonus_mid_min_m": 1500.0,
-    "altitude_bonus_high": 0.72,
-    "altitude_bonus_mid": 0.43,
-    "nose_down_altitude_m": 3200.0,
-    "nose_down_pitch_deg": -6.0,
-    "nose_down_penalty": -0.9,
+
+    # ---------------------------------------------------------------------
+    # 5) Altitude / flight safety
+    # ---------------------------------------------------------------------
+    "altitude_soft_floor_m": 2200.0,
+    "altitude_hard_floor_m": 1000.0,
+    "low_altitude_penalty": 1.0,
+    "very_low_altitude_penalty": 2.2,
+    "altitude_bonus_high_min_m": 1500.0,
+    "altitude_bonus_high_max_m": 5000.0,
+    "altitude_bonus_mid_min_m": 700.0,
+    "altitude_bonus_high": 0.8,
+    "altitude_bonus_mid": 0.8,
+
+    "nose_down_altitude_m": 4500.0,
+    "nose_down_pitch_deg": -5.0,
+    "nose_down_penalty": -2.2,
+
+    # ---------------------------------------------------------------------
+    # 6) Control stability
+    # ---------------------------------------------------------------------
     "roll_limit_deg": 80.0,
     "roll_limit_penalty": 0.15,
     "pitch_down_limit_deg": -12.0,
     "pitch_down_penalty": 1.2,
     "pitch_up_limit_deg": 35.0,
     "pitch_up_penalty": 0.25,
+
+    # ---------------------------------------------------------------------
+    # 7) Attack opportunity
+    # ---------------------------------------------------------------------
     "attack_range_min_m": 250.0,
     "attack_range_max_m": 1500.0,
     "attack_range_bonus": 0.2,
     "far_range_penalty_start_m": 3500.0,
     "far_range_penalty": 0.25,
+
+    # ---------------------------------------------------------------------
+    # 8) Terminal outcome
+    # ---------------------------------------------------------------------
     "win_reward": 100.0,
     "loss_reward": -100.0,
     "draw_reward": -30.0,
-    "crash_penalty": -260.0,
+    "crash_penalty": -200.0,
 }
+
 
 
 def _clamp01(value: float) -> float:
@@ -75,6 +110,7 @@ def compute_reward(
     truncated: bool,
     end_condition: str,
 ) -> tuple[float, dict]:
+    """Return reward components for early fixed-target gun training."""
     cfg = {**MY_REWARD_CONFIG, **reward_config}
     distance = float(geo_info._get_distance(ownship_state, target_state))
     ata = abs(float(geo_info._get_antenna_train_angle(ownship_state, target_state, False)))
@@ -83,11 +119,16 @@ def compute_reward(
     roll = float(ownship_state[StateIndex.ROLL])
     pitch = float(ownship_state[StateIndex.PITCH])
 
-    components: dict[str, float] = {
-        "step": float(cfg["step_penalty"]),
-        "survival": float(cfg.get("survival_bonus", 0.0)),
-    }
+    components: dict[str, float] = {}
 
+    # ------------------------------------------------------------------
+    # 1) Common pacing
+    # ------------------------------------------------------------------
+    components["step"] = float(cfg["step_penalty"])
+
+    # ------------------------------------------------------------------
+    # 2) Range keeping
+    # ------------------------------------------------------------------
     ideal_min = float(cfg["ideal_range_min_m"])
     ideal_max = float(cfg["ideal_range_max_m"])
     ideal_mid = 0.5 * (ideal_min + ideal_max)
@@ -96,94 +137,110 @@ def compute_reward(
     components["range"] = float(cfg["range_scale"]) * max(-1.0, range_score)
 
     if distance < float(cfg["too_close_m"]):
-        ratio = _clamp01(1.0 - distance / max(1.0, float(cfg["too_close_m"])))
+        too_close_ratio = 1.0 - distance / max(1.0, float(cfg["too_close_m"]))
+        close_penalty = _clamp01(too_close_ratio)
         components["overshoot"] = -float(cfg["overshoot_penalty"]) * (
-            ratio + float(cfg["overshoot_quadratic_scale"]) * ratio * ratio
+            close_penalty
+            + float(cfg["overshoot_quadratic_scale"]) * close_penalty * close_penalty
         )
     else:
         components["overshoot"] = 0.0
-    components["inside_min_range"] = (
-        float(cfg["inside_min_range_penalty"])
-        if distance < float(wez_config["min_range_m"])
-        else 0.0
-    )
 
-    components["ata"] = float(cfg["ata_scale"]) * max(-1.0, 1.0 - ata / 90.0)
-    components["aa"] = float(cfg["aa_scale"]) * max(-1.0, 1.0 - aa / 180.0)
+    if distance < float(wez_config["min_range_m"]):
+        components["inside_min_range"] = float(cfg["inside_min_range_penalty"])
+    else:
+        components["inside_min_range"] = 0.0
+
+    # ------------------------------------------------------------------
+    # 3) Aim / geometry
+    # ------------------------------------------------------------------
+    ata_score = 1.0 - ata / 90.0
+    components["ata"] = float(cfg["ata_scale"]) * max(-1.0, ata_score)
+
+    aa_score = 1.0 - aa / 180.0
+    components["aa"] = float(cfg["aa_scale"]) * max(-1.0, aa_score)
+
+    # ------------------------------------------------------------------
+    # 4) Gun WEZ / damage
+    # ------------------------------------------------------------------
     in_wez = (
         float(wez_config["min_range_m"]) <= distance <= float(wez_config["max_range_m"])
         and ata <= float(wez_config["angle_deg"]) / 2.0
     )
     components["wez"] = float(cfg["wez_bonus"]) if in_wez else 0.0
+
     components["damage"] = float(cfg["damage_scale"]) * (
         float(target_damage) - float(ownship_damage)
     )
 
-    if float(cfg["altitude_bonus_high_min_m"]) <= altitude <= float(
-        cfg["altitude_bonus_high_max_m"]
-    ):
-        components["altitude"] = float(cfg["altitude_bonus_high"])
-    elif float(cfg["altitude_bonus_mid_min_m"]) <= altitude < float(
-        cfg["altitude_bonus_high_min_m"]
-    ):
-        components["altitude"] = float(cfg["altitude_bonus_mid"])
-    else:
-        components["altitude"] = 0.0
+    # ------------------------------------------------------------------
+    # 5) Altitude / flight safety
+    # ------------------------------------------------------------------
+    altitude_bonus = 0.0
+    if float(cfg["altitude_bonus_high_min_m"]) <= altitude <= float(cfg["altitude_bonus_high_max_m"]):
+        altitude_bonus = float(cfg["altitude_bonus_high"])
+    elif float(cfg["altitude_bonus_mid_min_m"]) <= altitude < float(cfg["altitude_bonus_high_min_m"]):
+        altitude_bonus = float(cfg["altitude_bonus_mid"])
+    components["altitude"] = altitude_bonus
 
-    components["nose_down"] = (
-        float(cfg["nose_down_penalty"])
-        if altitude < float(cfg["nose_down_altitude_m"])
-        and pitch < float(cfg["nose_down_pitch_deg"])
-        else 0.0
-    )
+    if altitude < float(cfg["nose_down_altitude_m"]) and pitch < float(cfg["nose_down_pitch_deg"]):
+        components["nose_down"] = float(cfg["nose_down_penalty"])
+    else:
+        components["nose_down"] = 0.0
 
     safety = 0.0
     if altitude < float(cfg["altitude_soft_floor_m"]):
         safety -= float(cfg["low_altitude_penalty"]) * _clamp01(
             (float(cfg["altitude_soft_floor_m"]) - altitude)
-            / max(
-                1.0,
-                float(cfg["altitude_soft_floor_m"])
-                - float(cfg["altitude_hard_floor_m"]),
-            )
+            / max(1.0, float(cfg["altitude_soft_floor_m"]) - float(cfg["altitude_hard_floor_m"]))
         )
     if altitude < float(cfg["altitude_hard_floor_m"]):
         safety -= float(cfg["very_low_altitude_penalty"])
     components["safety"] = safety
 
-    control = 0.0
-    if abs(roll) > float(cfg["roll_limit_deg"]):
-        control -= float(cfg["roll_limit_penalty"]) * _clamp01(
-            (abs(roll) - float(cfg["roll_limit_deg"]))
+    # ------------------------------------------------------------------
+    # 6) Control stability
+    # ------------------------------------------------------------------
+    control_stability = 0.0
+    abs_roll = abs(roll)
+    if abs_roll > float(cfg["roll_limit_deg"]):
+        control_stability -= float(cfg["roll_limit_penalty"]) * _clamp01(
+            (abs_roll - float(cfg["roll_limit_deg"]))
             / max(1.0, 180.0 - float(cfg["roll_limit_deg"]))
         )
     if pitch < float(cfg["pitch_down_limit_deg"]):
-        control -= float(cfg["pitch_down_penalty"]) * _clamp01(
+        control_stability -= float(cfg["pitch_down_penalty"]) * _clamp01(
             (float(cfg["pitch_down_limit_deg"]) - pitch)
             / max(1.0, 90.0 + float(cfg["pitch_down_limit_deg"]))
         )
     if pitch > float(cfg["pitch_up_limit_deg"]):
-        control -= float(cfg["pitch_up_penalty"]) * _clamp01(
+        control_stability -= float(cfg["pitch_up_penalty"]) * _clamp01(
             (pitch - float(cfg["pitch_up_limit_deg"]))
             / max(1.0, 90.0 - float(cfg["pitch_up_limit_deg"]))
         )
-    components["control_stability"] = control
+    components["control_stability"] = control_stability
 
+    # ------------------------------------------------------------------
+    # 7) Attack opportunity
+    # ------------------------------------------------------------------
     attack_min = float(cfg["attack_range_min_m"])
     attack_max = float(cfg["attack_range_max_m"])
-    components["attack_range"] = (
-        float(cfg["attack_range_bonus"])
-        if attack_min <= distance <= attack_max
-        else 0.0
-    )
-    far_start = float(cfg["far_range_penalty_start_m"])
-    components["far_range"] = (
-        -float(cfg["far_range_penalty"])
-        * _clamp01((distance - far_start) / max(1.0, far_start))
-        if distance > far_start
-        else 0.0
-    )
+    if attack_min <= distance <= attack_max:
+        components["attack_range"] = float(cfg["attack_range_bonus"])
+    else:
+        components["attack_range"] = 0.0
 
+    far_start = float(cfg["far_range_penalty_start_m"])
+    if distance > far_start:
+        components["far_range"] = -float(cfg["far_range_penalty"]) * _clamp01(
+            (distance - far_start) / max(1.0, far_start)
+        )
+    else:
+        components["far_range"] = 0.0
+
+    # ------------------------------------------------------------------
+    # 8) Terminal outcome
+    # ------------------------------------------------------------------
     terminal_reward = 0.0
     if terminated or truncated:
         ownship_health = float(ownship_state[StateIndex.HEALTH])
@@ -197,6 +254,7 @@ def compute_reward(
         else:
             terminal_reward = float(cfg["draw_reward"])
     components["terminal"] = terminal_reward
+
     return float(sum(components.values())), components
 
 

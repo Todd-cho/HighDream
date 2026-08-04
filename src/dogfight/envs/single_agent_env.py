@@ -207,7 +207,6 @@ class DogFightEnv(gym.Env):
         self._ep_step_count = 0
         self._ep_distance_sum = 0.0
         self._ep_distance_min = float("inf")
-        self._ep_altitude_min = float("inf")
         self._ep_altitude_penalty_steps = 0
         self._ep_total_reward = 0.0
         self._ep_reward_components: Dict[str, float] = {}
@@ -290,12 +289,6 @@ class DogFightEnv(gym.Env):
         self._ownship_state = self._sim.reset()
         self._target_state = self._target_sim.reset()
         self._update_initial_geometry_metrics(scenario_mode)
-        self._initial_scenario_metrics.update({
-            "initial_altitude_m": float(self._ownship_state[StateIndex.ALT]),
-            "initial_kcas": float(self._ownship_state[StateIndex.KCAS]),
-            "initial_roll_deg": float(self._ownship_state[StateIndex.ROLL]),
-            "initial_pitch_deg": float(self._ownship_state[StateIndex.PITCH]),
-        })
         self.pre_obs = self.get_observation()
         self.info = {"end_condition": "", **self._initial_scenario_metrics}
         self.ownship_damage = 0.0
@@ -309,9 +302,6 @@ class DogFightEnv(gym.Env):
         self._ep_step_count = 0
         self._ep_distance_sum = 0.0
         self._ep_distance_min = float("inf")
-        # JSBSim reports ALT/KCAS as zero immediately after reset.  The first
-        # simulated step is the first reliable sample for altitude statistics.
-        self._ep_altitude_min = float("inf")
         self._ep_altitude_penalty_steps = 0
         self._ep_total_reward = 0.0
         self._ep_reward_components = {}
@@ -373,15 +363,7 @@ class DogFightEnv(gym.Env):
             "ep_step_count": self._ep_step_count,
             "ep_mean_distance": ep_mean_dist,
             "ep_min_distance": ep_min_dist,
-            "ep_min_altitude_m": self._ep_altitude_min,
             "ep_altitude_penalty_steps": self._ep_altitude_penalty_steps,
-            "final_distance_m": float(self._geo_info._get_distance(
-                self._ownship_state, self._target_state
-            )),
-            "final_altitude_m": float(self._ownship_state[StateIndex.ALT]),
-            "final_kcas": float(self._ownship_state[StateIndex.KCAS]),
-            "final_roll_deg": float(self._ownship_state[StateIndex.ROLL]),
-            "final_pitch_deg": float(self._ownship_state[StateIndex.PITCH]),
             "final_ata_deg": abs(float(self._geo_info._get_antenna_train_angle(
                 self._ownship_state, self._target_state, True
             ))),
@@ -487,27 +469,10 @@ class DogFightEnv(gym.Env):
         components: dict,
     ) -> tuple[float, float]:
         distance = self._geo_info._get_distance(self._ownship_state, self._target_state)
-        if self._ep_step_count == 0:
-            self._initial_scenario_metrics.update({
-                "initial_altitude_m": float(
-                    self._ownship_state[StateIndex.ALT]
-                ),
-                "initial_kcas": float(self._ownship_state[StateIndex.KCAS]),
-                "initial_roll_deg": float(
-                    self._ownship_state[StateIndex.ROLL]
-                ),
-                "initial_pitch_deg": float(
-                    self._ownship_state[StateIndex.PITCH]
-                ),
-            })
         self._ep_step_count += 1
         self._ep_total_reward += float(reward)
         self._ep_distance_sum += distance
         self._ep_distance_min = min(self._ep_distance_min, distance)
-        self._ep_altitude_min = min(
-            self._ep_altitude_min,
-            float(self._ownship_state[StateIndex.ALT]),
-        )
         if self._in_wez:
             self._ep_wez_steps += 1
         if components.get("safety", 0.0) < 0.0:
@@ -675,7 +640,7 @@ class DogFightEnv(gym.Env):
         if not self._episode_summary_path:
             return
         row = self._build_episode_summary_row()
-        path = self._resolved_episode_summary_path()
+        path = Path(self._episode_summary_path)
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
             write_header = not path.exists() or path.stat().st_size == 0
@@ -697,18 +662,7 @@ class DogFightEnv(gym.Env):
         cause = self._classify_episode_cause(components, dominant_penalty)
 
         return {
-            "runner_index": self._runner_index,
-            "env_index": self._env_index,
             "episode": self.num_engage,
-            "episode_id": (
-                f"runner_{self._runner_index}_env_{self._env_index}"
-                f"_episode_{self.num_engage}"
-            ),
-            "scenario_name": self.info.get("initial_scenario_name", ""),
-            "scenario_index": self.info.get(
-                "initial_scenario_index",
-                self.info.get("legacy_scenario_index", ""),
-            ),
             "outcome": self.info.get("outcome", ""),
             "end_condition": self.info.get("end_condition", ""),
             "primary_cause": cause,
@@ -716,46 +670,13 @@ class DogFightEnv(gym.Env):
             "suggested_params": self._suggest_reward_params(cause),
             "steps": self.info.get("ep_step_count", 0),
             "total_reward": round(float(self._ep_total_reward), 6),
-            "initial_altitude_m": round(
-                self._num(self.info.get("initial_altitude_m")), 3
-            ),
-            "initial_kcas": round(self._num(self.info.get("initial_kcas")), 3),
-            "initial_roll_deg": round(
-                self._num(self.info.get("initial_roll_deg")), 3
-            ),
-            "initial_pitch_deg": round(
-                self._num(self.info.get("initial_pitch_deg")), 3
-            ),
             "mean_distance_m": round(self._num(self.info.get("ep_mean_distance")), 3),
             "min_distance_m": round(self._num(self.info.get("ep_min_distance")), 3),
-            "final_distance_m": round(self._num(self.info.get(
-                "final_distance_m",
-                self._geo_info._get_distance(
-                    self._ownship_state, self._target_state
-                ),
-            )), 3),
-            "final_altitude_m": round(self._num(self.info.get(
-                "final_altitude_m",
-                self._ownship_state[StateIndex.ALT],
-            )), 3),
-            "minimum_altitude_m": round(
-                self._num(self.info.get(
-                    "ep_min_altitude_m",
-                    self._ep_altitude_min,
-                )), 3
-            ),
-            "final_kcas": round(self._num(self.info.get(
-                "final_kcas",
-                self._ownship_state[StateIndex.KCAS],
-            )), 3),
-            "final_roll_deg": round(self._num(self.info.get(
-                "final_roll_deg",
-                self._ownship_state[StateIndex.ROLL],
-            )), 3),
-            "final_pitch_deg": round(self._num(self.info.get(
-                "final_pitch_deg",
-                self._ownship_state[StateIndex.PITCH],
-            )), 3),
+            "final_distance_m": round(self._num(self.info.get("final_distance_m")), 3),
+            "final_altitude_m": round(self._num(self.info.get("final_altitude_m")), 3),
+            "final_kcas": round(self._num(self.info.get("final_kcas")), 3),
+            "final_roll_deg": round(self._num(self.info.get("final_roll_deg")), 3),
+            "final_pitch_deg": round(self._num(self.info.get("final_pitch_deg")), 3),
             "final_ata_deg": round(self._num(self.info.get("final_ata_deg")), 3),
             "final_aa_deg": round(self._num(self.info.get("final_aa_deg")), 3),
             "wez_steps": self.info.get("ep_wez_steps", 0),
@@ -771,15 +692,6 @@ class DogFightEnv(gym.Env):
             "reward_damage": round(components.get("damage", 0.0), 6),
             "reward_terminal": round(components.get("terminal", 0.0), 6),
         }
-
-    def _resolved_episode_summary_path(self) -> Path:
-        """Use one CSV per runner/env so concurrent workers never corrupt a file."""
-        path = Path(self._episode_summary_path)
-        suffix = path.suffix or ".csv"
-        return path.with_name(
-            f"{path.stem}_runner_{self._runner_index}"
-            f"_env_{self._env_index}{suffix}"
-        )
 
     def _classify_episode_cause(
         self,
@@ -805,8 +717,6 @@ class DogFightEnv(gym.Env):
             if final_roll >= 120.0:
                 return "altitude_roll_instability_crash"
             return "low_altitude_crash"
-        if end_condition == "target altitude below min":
-            return "target_altitude_below_min"
         if end_condition in {"FDM Update Fail", "Ownship FDM output Fall"}:
             return "fdm_or_control_instability"
         if min_dist < min_wez:

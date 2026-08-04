@@ -506,12 +506,6 @@ def parse_args():
         help="Number of training iterations.",
     )
     parser.add_argument(
-        "--seed",
-        type=int,
-        default=None,
-        help="Optional RLlib/environment seed for reproducible comparisons.",
-    )
-    parser.add_argument(
         "--framework",
         default="torch",
         choices=["torch"],
@@ -810,7 +804,6 @@ def _build_model_config_args(args) -> dict[str, Any]:
 def _build_algorithm_args(args) -> dict:
     return {
         "framework": args.framework,
-        "seed": args.seed,
         "num_env_runners": args.num_env_runners,
         "num_envs_per_env_runner": args.num_envs_per_env_runner,
         "rollout_fragment_length": args.rollout_fragment_length,

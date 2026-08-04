@@ -52,7 +52,6 @@ def build_argv(exp: dict[str, Any], exp_path: Path) -> tuple[Path, list[str]]:
     argv += ["--algorithm", str(algo.get("name", "ppo"))]
     if script_name != "train_curriculum":
         argv += ["--iterations", str(runtime.get("iterations", 5))]
-        _add_optional(argv, "--seed", runtime, "seed")
 
     if script_name == "student/my_train":
         argv += ["--team-name", str(output_name)]

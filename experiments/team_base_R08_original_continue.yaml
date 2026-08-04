@@ -1,21 +1,31 @@
-# Team common base: continue from R08 using the original R08 environment.
+# ideal_range_widen_v1: far_range_penalty/attack_range_bonus를 극한까지 밀어도
+# Mean Range(6000~9000m)가 전혀 안 줄던 문제의 원인을 다르게 짚어본 실험.
 #
-# Based on: 007_R08_r1.yaml
-# Changed for team use:
-# - output.tag is renamed so new runs do not overwrite/confuse the R08 source.
-# - runtime.init_bundle loads the R08 learned policy weights.
+# my_reward.py의 range 컴포넌트 계산:
+#   ideal_mid = (ideal_range_min_m + ideal_range_max_m) / 2
+#   ideal_half_width = (ideal_range_max_m - ideal_range_min_m) / 2
+#   range_score = 1.0 - abs(distance - ideal_mid) / ideal_half_width   (최저 -1.0으로 clamp)
 #
-# Team rule:
-# - Copy this YAML for each experiment.
-# - Change output.tag.
-# - Change only your assigned env_config.reward parameters.
+# 기존 값(ideal_range_min_m=450, ideal_range_max_m=1100)에서는
+# ideal_half_width=325 라서, distance가 1425m만 넘어도 range_score가 -1.0 바닥에
+# 닿아버림. 즉 6000~9000m 구간은 전부 "그냥 최저점" 취급이라 거리가 줄든 늘든
+# reward에 아무 차이가 없었던 것 — far_range_penalty를 아무리 세게 줘도 "얼마나
+# 가까워지고 있는지"에 대한 연속적인 유도 신호 자체가 없었던 것으로 보임.
+#
+# 이번 변경: ideal_range_max_m 1100 -> 6000 (ideal_range_min_m은 450 유지)
+#   -> ideal_mid=3225, ideal_half_width=2775, -1.0 바닥에 닿는 지점이 8775m로 늘어남
+#   -> 지금 정책이 실제로 다니는 6000~9000m 구간 대부분에서 "가까워질수록 점점
+#      좋아진다"는 진짜 그라디언트가 생김
+#
+# attack opportunity는 극한값(auto_range_r011)이 아니라, 실제로 Mean Range가
+# 제일 낮았던 auto_range_r003의 값으로 되돌려서 이어감.
 
 name: team_base_R08_original_continue
 script: train_rllib
 
 output:
   name: highdream
-  tag: team_base_R08_original_continue_v1_2
+  tag: ideal_range_widen_v1_test_6000_300iter
 
 env:
   observation_mode: tactical16
@@ -141,21 +151,29 @@ env_config:
   reward:
     step_penalty: -0.003
     survival_bonus: 0.0
+
+    # Range keeping — 이번 실험의 핵심 변경점: ideal_range_max_m만 넓힘
     too_close_m: 460.0
     ideal_range_min_m: 450.0
-    ideal_range_max_m: 1100.0
+    ideal_range_max_m: 6000.0     # <- 1100.0 에서 변경 (유일한 핵심 변경)
     range_scale: 0.8
     overshoot_penalty: 4.0
     overshoot_quadratic_scale: 1.5
     inside_min_range_penalty: -3.0
-    ata_scale: 0.12
+
+    # Aim / geometry — auto_range_r003과 동일
+    ata_scale: 0.10
     aa_scale: 0.03
-    wez_bonus: 0.5
+
+    # Gun WEZ / damage — 동일
+    wez_bonus: 0.05
     damage_scale: 20.0
-    altitude_soft_floor_m: 3000.0
-    altitude_hard_floor_m: 1000.0
-    low_altitude_penalty: 0.9
-    very_low_altitude_penalty: 2.88
+
+    # Altitude / flight safety — crash 잡은 값, 절대 건드리지 않음
+    altitude_soft_floor_m: 3800.0
+    altitude_hard_floor_m: 1600.0
+    low_altitude_penalty: 2.0
+    very_low_altitude_penalty: 5.0
     altitude_bonus_high_min_m: 3000.0
     altitude_bonus_high_max_m: 9000.0
     altitude_bonus_mid_min_m: 1000.0
@@ -164,17 +182,23 @@ env_config:
     nose_down_altitude_m: 3800.0
     nose_down_pitch_deg: -8.0
     nose_down_penalty: -1.4
-    roll_limit_deg: 80.0
-    roll_limit_penalty: 0.15
-    pitch_down_limit_deg: -12.0
-    pitch_down_penalty: 1.2
-    pitch_up_limit_deg: 35.0
-    pitch_up_penalty: 0.25
+
+    # Control stability — crash 잡은 값, 절대 건드리지 않음
+    roll_limit_deg: 60.0
+    roll_limit_penalty: 0.35
+    pitch_down_limit_deg: -6.0
+    pitch_down_penalty: 2.0
+    pitch_up_limit_deg: 27.0
+    pitch_up_penalty: 0.45
+
+    # Attack opportunity — 극한값(r011) 대신 제일 좋았던 r003 값으로 되돌림
     attack_range_min_m: 250.0
-    attack_range_max_m: 1500.0
-    attack_range_bonus: 0.2
-    far_range_penalty_start_m: 3500.0
-    far_range_penalty: 0.25
+    attack_range_max_m: 1000.0
+    attack_range_bonus: 0.46
+    far_range_penalty_start_m: 1500.0
+    far_range_penalty: 0.65
+
+    # Terminal outcome — 건드리지 않음
     win_reward: 100.0
     loss_reward: -100.0
     draw_reward: -30.0
@@ -200,16 +224,16 @@ algo:
     head_fcnet_activation: relu
 
 runtime:
-  iterations: 5
+  iterations: 300
   num_env_runners: 1
   num_envs_per_env_runner: 1
   rollout_fragment_length: auto
   batch_mode: truncate_episodes
   save_lightweight_bundle: true
-  lightweight_bundle_frequency: 0
+  lightweight_bundle_frequency: 25
   save_native_checkpoint: false
   native_checkpoint_frequency: 0
-  init_bundle: artifacts/models/highdream/altitude_c05_refine_v1_validation_R08_r1_150iter
+  init_bundle: artifacts/models/highdream/auto_range_r003
 
 dashboard:
   enabled: true
@@ -228,4 +252,4 @@ engagement_log:
   episodes: 2
   print: false
 
-notes: R08 original scenario/reward continued from R08 learned policy weights.
+notes: "ideal_range_widen_v1: ideal_range_max_m 1100->6000으로 넓혀서 6000~9000m 구간에도 실제 거리 그라디언트가 생기는지 검증. attack opportunity는 가장 좋았던 auto_range_r003 값으로 되돌림."
