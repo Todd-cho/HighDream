@@ -73,5 +73,6 @@ runtime:
 | 폴더 | 올린 사람 | 베이스/커리큘럼 | 핵심 reward 변경점 | crash율(마지막20 평균) | mean_distance | 최저고도 평균 | checkpoint 있음 | 비고 | 날짜 |
 |---|---|---|---|---|---|---|---|---|---|
 | `영인_stage5_ata015_150iter` | 영인 | C10 Stage4 native checkpoint에서 이어서 학습 | `ata_scale=0.15`, `attack_range_bonus=0.9`, `far_range_penalty=1.05`, `far_range_penalty_start_m=4000` (승현 far_range span*6 fix 포함) | 5% | 8913m | 3300m | O | Stage5 안전/접근 이분탐색 최종 후보, 5시나리오 mixed pool 150iter | 2026-08-04 |
+| `영인_stage5_safe_approach_C10_attack_followup` | 영인 | C10 Stage4 native checkpoint에서 이어서 학습 (`run_altitude_attack_followup.py` Stage5, 180iter, mixed 5시나리오 pool) | 위 150iter 후보와 동일 파라미터 + `range_scale=2.4` (버그로 누락됐다가 2026-08-05 수정 — C10 base엔 range_scale이 없어서 my_reward.py 기본값 0.8로 조용히 폴백되던 문제, 수정 전엔 mean_distance 10860m로 게이트 실패) | 10% | 8384m | 3315m | O | `run_altitude_attack_followup.py` 파이프라인의 frozen 안전검증 통과 후 정식 180iter 실행, 안전/접근 게이트(crash≤20%, 최저고도≥1800m, distance≤9000m) 전부 통과. 정식 180iter라 150iter 탐색판보다 iteration 수는 늘었지만 crash율은 소폭 상승(5%→10%, n=10 오차범위 가능), distance/고도는 비슷~약간 개선. episode 243개 중 crash 원인은 nose_down 1건, roll_instability 0건 (전체 crash율 6.6%). 다음 단계 Stage6(safe_wez_geometry)의 시작 checkpoint. | 2026-08-05 |
 
 (새 모델 올릴 때 이 표에 이어서 한 줄씩 추가해주세요.)
