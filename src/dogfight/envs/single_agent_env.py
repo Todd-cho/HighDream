@@ -109,6 +109,14 @@ class DogFightEnv(gym.Env):
         self._delta_t = 1.0 / self._sim_hz
         self._max_engage_time = float(self.config["max_engage_time"])
         self._min_altitude = float(self.config["min_altitude"])
+        self._safety_override_enabled = bool(self.config.get("safety_override_enabled", False))
+        self._safety_override_altitude_m = float(self.config.get("safety_override_altitude_m", 500.0))
+        self._safety_override_pitch_deg = float(self.config.get("safety_override_pitch_deg", -5.0))
+        self._safety_override_roll_deg = float(self.config.get("safety_override_roll_deg", 45.0))
+        self._safety_override_time_horizon_s = float(self.config.get("safety_override_time_horizon_s", 15.0))
+        self._safety_override_hard_floor_m = float(self.config.get("safety_override_hard_floor_m", 400.0))
+        self._safety_override_prev_altitude: float | None = None
+        self._pursuit_commanded_heading: float | None = None
         self._observation_mode = self.config["observation_mode"]
         self._episode_step_limit = self.config.get("episode_step_limit")
         self._geometry_guard = self.config.get("geometry_guard", {})
@@ -209,6 +217,9 @@ class DogFightEnv(gym.Env):
         self._ep_distance_min = float("inf")
         self._ep_altitude_min = float("inf")
         self._ep_altitude_penalty_steps = 0
+        self._ep_safety_override_steps = 0
+        self._safety_override_prev_altitude = None
+        self._pursuit_commanded_heading = None
         self._ep_total_reward = 0.0
         self._ep_reward_components: Dict[str, float] = {}
         self._ep_action_sum = np.zeros(self.num_action, dtype=np.float64)
@@ -225,6 +236,74 @@ class DogFightEnv(gym.Env):
         a = np.clip(rl_action, -1.0, 1.0).astype(np.float32)
         a[3] = (a[3] + 1.0) / 2.0                        # [-1,1] → [0,1]
         return np.clip(a, self._SIM_ACTION_LOW, self._SIM_ACTION_HIGH)
+
+    def _apply_safety_override(self, sim_action: np.ndarray) -> np.ndarray:
+        """Hard, non-learned recovery override for the ownship's own action.
+
+        IMPORTANT: must be applied to the SIM-format action (throttle already
+        in [0,1]) right before self._sim.step(...), not the raw RL action
+        passed into step(): when self._ownship_action_provider is set (every
+        eval/inference path), _step_controlled_aircraft() gets the real
+        action from provider.compute_action(...) and never even looks at
+        step()'s own `action` argument, so overriding that argument earlier
+        is a silent no-op (found 2026-08-11 -- the override counter
+        incremented but the trajectory never changed).
+
+        Sign conventions were verified empirically (2026-08-11, held a
+        constant action for 30 steps and watched StateIndex.PITCH/ROLL):
+        action[1]=+1.0 pitches the nose DOWN (so pull-up is action[1]=-1.0),
+        action[0]=+1.0 rolls right/positive (so wings-level correction is
+        -sign(roll)).
+
+        Trigger is the OR of three conditions (2026-08-11: a fixed-altitude
+        trigger alone, e.g. "below 1500m and pitch<=-5", still let ~20% of
+        200s episodes crash -- replaying one showed the dive started at
+        ~4500m and was already descending at ~150-170 m/s by the time it
+        crossed 1500m, so a fixed altitude line engages far too late relative
+        to how much momentum a long dive has already built up):
+          1. hard_floor_breach: altitude < safety_override_hard_floor_m,
+             unconditional backstop.
+          2. fixed_trigger: altitude < safety_override_altitude_m and
+             pitch <= safety_override_pitch_deg (the original, simple check).
+          3. predictive_trigger: estimated vertical rate (from consecutive
+             altitude samples) projects impact with min_altitude within
+             safety_override_time_horizon_s -- triggers a fast dive early
+             regardless of current altitude, while a slow/shallow descent at
+             the same altitude does not (its projected time-to-impact stays
+             long).
+        Disabled by default via safety_override_enabled.
+        """
+        if not self._safety_override_enabled:
+            return sim_action
+        altitude = float(self._ownship_state[StateIndex.ALT])
+        pitch = float(self._ownship_state[StateIndex.PITCH])
+        roll = float(self._ownship_state[StateIndex.ROLL])
+
+        vertical_rate = None
+        if self._safety_override_prev_altitude is not None:
+            vertical_rate = (altitude - self._safety_override_prev_altitude) / self._delta_t
+        self._safety_override_prev_altitude = altitude
+
+        hard_floor_breach = altitude < self._safety_override_hard_floor_m
+        fixed_trigger = (
+            altitude < self._safety_override_altitude_m
+            and pitch <= self._safety_override_pitch_deg
+        )
+        predictive_trigger = False
+        if vertical_rate is not None and vertical_rate < 0.0:
+            time_to_impact = (altitude - self._min_altitude) / max(1.0, -vertical_rate)
+            predictive_trigger = time_to_impact < self._safety_override_time_horizon_s
+
+        if not (hard_floor_breach or fixed_trigger or predictive_trigger):
+            return sim_action
+
+        self._ep_safety_override_steps += 1
+        sim_action = sim_action.copy()
+        if abs(roll) > self._safety_override_roll_deg:
+            sim_action[0] = -1.0 if roll > 0 else 1.0  # roll toward wings-level first
+        sim_action[1] = -1.0  # pull up
+        sim_action[3] = 1.0   # full throttle (already [0,1] in sim format)
+        return sim_action
 
     def _build_ai(self, dll_name):
         if not dll_name:
@@ -313,6 +392,9 @@ class DogFightEnv(gym.Env):
         # simulated step is the first reliable sample for altitude statistics.
         self._ep_altitude_min = float("inf")
         self._ep_altitude_penalty_steps = 0
+        self._ep_safety_override_steps = 0
+        self._safety_override_prev_altitude = None
+        self._pursuit_commanded_heading = None
         self._ep_total_reward = 0.0
         self._ep_reward_components = {}
         self._ep_action_sum = np.zeros(self.num_action, dtype=np.float64)
@@ -375,6 +457,7 @@ class DogFightEnv(gym.Env):
             "ep_min_distance": ep_min_dist,
             "ep_min_altitude_m": self._ep_altitude_min,
             "ep_altitude_penalty_steps": self._ep_altitude_penalty_steps,
+            "ep_safety_override_steps": self._ep_safety_override_steps,
             "final_distance_m": float(self._geo_info._get_distance(
                 self._ownship_state, self._target_state
             )),
@@ -547,7 +630,7 @@ class DogFightEnv(gym.Env):
                 self.pre_obs,
             )
             result = self._ownship_action_provider.compute_action(context)
-            self._sim.step(result.action)
+            self._sim.step(self._apply_safety_override(np.asarray(result.action, dtype=np.float32)))
             return
 
         control_mode = self.config["ownship_control_mode"]
@@ -559,7 +642,7 @@ class DogFightEnv(gym.Env):
             loiter = self.config["target_loiter"]
             self._sim.step_loiter(loiter["enabled"], loiter["bank"], loiter["pitch"])
         else:
-            self._sim.step(self._to_sim_action(action))
+            self._sim.step(self._apply_safety_override(self._to_sim_action(action)))
 
     def _step_target_aircraft(self) -> None:
         if self._target_action_provider is not None:
@@ -589,6 +672,52 @@ class DogFightEnv(gym.Env):
                 autopilot["altitude_cmd"],
                 autopilot["speed_cmd"],
             )
+        elif target_mode == "pursuit_autopilot":
+            # Scripted (non-learned) pursuit: recompute heading_cmd toward the
+            # ownship's live position every step and feed it to the sim's own
+            # step_autopilot() control loop (same one "autopilot" mode uses),
+            # rather than hand-rolling a raw roll/pitch/rudder controller.
+            # Added 2026-08-11 because target_mode="behavior_tree" turned out
+            # to be a no-op stub (Rule_forTraining.xml's only leaf action is
+            # Task_Empty) -- this gives a genuinely active opponent that
+            # closes on the ownship without needing the native BT engine.
+            target_n = float(self._target_state[StateIndex.N])
+            target_e = float(self._target_state[StateIndex.E])
+            ownship_n = float(self._ownship_state[StateIndex.N])
+            ownship_e = float(self._ownship_state[StateIndex.E])
+            raw_heading_cmd = math.degrees(
+                math.atan2(ownship_e - target_e, ownship_n - target_n)
+            ) % 360.0
+            pursuit_cfg = self.config.get("target_pursuit_autopilot", {})
+            # Rate-limit the commanded heading instead of feeding the raw
+            # instantaneous bearing straight to step_autopilot(): near a close
+            # pass the raw bearing can swing ~180deg in a step or two (found
+            # 2026-08-11 -- the target crashed itself at high speed shortly
+            # after every close approach), which is an unrealistic, physically
+            # impossible turn request that appears to destabilize the sim's
+            # autopilot control loop. Capping the per-step change to a
+            # plausible fighter turn rate keeps the command achievable.
+            max_turn_deg = float(pursuit_cfg.get("max_turn_rate_deg_per_step", 3.0))
+            if self._pursuit_commanded_heading is None:
+                heading_cmd = raw_heading_cmd
+            else:
+                delta = (raw_heading_cmd - self._pursuit_commanded_heading + 180.0) % 360.0 - 180.0
+                delta = max(-max_turn_deg, min(max_turn_deg, delta))
+                heading_cmd = (self._pursuit_commanded_heading + delta) % 360.0
+            self._pursuit_commanded_heading = heading_cmd
+            # Deliberately does NOT track the ownship's live altitude: an
+            # early version recomputed altitude_cmd = ownship_altitude every
+            # step and the target's own step_autopilot() control loop
+            # destabilized (it crashed itself following the ownship's own
+            # aggressive vertical maneuvering) -- holding a fixed altitude
+            # keeps the pursuit purely horizontal/heading-based, which is
+            # enough to make it an active (not evasive) opponent without
+            # reintroducing the same instability.
+            altitude_cmd = float(pursuit_cfg.get(
+                "altitude_cmd", self.config["target_autopilot"]["altitude_cmd"]
+            ))
+            speed_cmd = float(pursuit_cfg.get("speed_cmd", 260.0))
+            self._target_sim.step_autopilot(heading_cmd, altitude_cmd, speed_cmd)
         else:
             self._target_sim.step_fix()
 
@@ -760,6 +889,7 @@ class DogFightEnv(gym.Env):
             "final_aa_deg": round(self._num(self.info.get("final_aa_deg")), 3),
             "wez_steps": self.info.get("ep_wez_steps", 0),
             "altitude_penalty_steps": self.info.get("ep_altitude_penalty_steps", 0),
+            "safety_override_steps": self.info.get("ep_safety_override_steps", 0),
             "ownship_damage": round(self._num(self.info.get("ownship_damage")), 6),
             "target_damage": round(self._num(self.info.get("target_damage")), 6),
             "ownship_health": round(self._num(self.info.get("ownship_health")), 6),
@@ -894,6 +1024,34 @@ class DogFightEnv(gym.Env):
             return default
         return number if math.isfinite(number) else default
 
+    def _phase_damage(self, dis_m: float, ata_deg: float) -> float:
+        """Damage rate for one side of an engagement, across the WEZ's damage
+        cone phases (tightest/highest-coefficient phase first). Returns the
+        first phase's damage whose range+angle both admit (dis_m, ata_deg) --
+        matches the rule that an aircraft inside a tighter phase gets that
+        phase's (higher) damage coefficient even though it also satisfies the
+        looser outer phases' range+angle bounds.
+        """
+        min_range_m = self._wez["min_range_m"]
+        phases = self._wez.get("phases") or [
+            {
+                "angle_deg": self._wez["angle_deg"],
+                "max_range_m": self._wez["max_range_m"],
+                "damage_coeff": 1.0,
+            }
+        ]
+        for phase in phases:
+            max_range_m = phase["max_range_m"]
+            base_range_m = max_range_m - min_range_m
+            half_angle_deg = phase["angle_deg"] / 2.0
+            if base_range_m == 0:
+                continue
+            if min_range_m <= dis_m <= max_range_m and half_angle_deg >= abs(ata_deg):
+                return ((max_range_m - dis_m) / base_range_m) * self._delta_t * float(
+                    phase.get("damage_coeff", 1.0)
+                )
+        return 0.0
+
     def update_damage(self):
         sim_state = self._sim.get_state()
         target_sim_state = self._target_sim.get_state()
@@ -901,22 +1059,12 @@ class DogFightEnv(gym.Env):
         ownship_ata_deg = self._geo_info._get_antenna_train_angle(sim_state, target_sim_state, False)
         target_ata_deg = self._geo_info._get_antenna_train_angle(target_sim_state, sim_state, False)
 
-        max_range_m = self._wez["max_range_m"]
-        min_range_m = self._wez["min_range_m"]
-        base_range_m = max_range_m - min_range_m
-        half_wez_angle_deg = self._wez["angle_deg"] / 2.0
-
-        target_damage = 0.0
-        ownship_damage = 0.0
-        if base_range_m != 0 and min_range_m <= dis_m <= max_range_m:
-            if half_wez_angle_deg >= abs(ownship_ata_deg):
-                target_damage = ((max_range_m - dis_m) / base_range_m) * self._delta_t
-            if half_wez_angle_deg >= abs(target_ata_deg):
-                ownship_damage = ((max_range_m - dis_m) / base_range_m) * self._delta_t
+        target_damage = self._phase_damage(dis_m, ownship_ata_deg)
+        ownship_damage = self._phase_damage(dis_m, target_ata_deg)
 
         self.ownship_damage = ownship_damage
         self.target_damage = target_damage
-        self._in_wez = target_damage > 0.0  # True when ownship is inside WEZ toward target
+        self._in_wez = target_damage > 0.0  # True when ownship is inside any WEZ phase toward target
         self._sim.deduct_health(ownship_damage)
         self._target_sim.deduct_health(target_damage)
 

@@ -67,6 +67,78 @@ def _ensure_ray_runtime_env() -> None:
     )
 
 
+def _infer_restore_initial_alpha(checkpoint_path: Path) -> float | None:
+    """Read the source run's own last logged alpha from its training_log.csv.
+
+    RLlib 2.54 new API stack SAC (ray/rllib/algorithms/sac/sac_learner.py
+    SACLearner.build()) keeps the entropy temperature as curr_log_alpha, a raw
+    tensor created directly on the Learner (not a parameter of the RLModule),
+    initialized from config.initial_alpha and registered with its own Adam
+    optimizer. Algorithm.restore() restores COMPONENT_RL_MODULE (actor/critic
+    network weights) and COMPONENT_OPTIMIZER (torch optimizer.state_dict(),
+    which is only per-parameter momentum/step buffers, not parameter values)
+    -- neither path carries curr_log_alpha's actual value, so it silently
+    resets to config.initial_alpha (default 1.0) on every restore, regardless
+    of how far the source run had converged it down. Since the checkpoint
+    itself never stores this value anywhere retrievable, the only place it
+    survives is the source run's own training_log.csv, so recover it from
+    there and let the caller pass it back in as initial_alpha.
+    """
+    tag = checkpoint_path.parent.name
+    output_name = checkpoint_path.parent.parent.name
+    log_path = ROOT / "artifacts" / "logs" / output_name / tag / "training_log.csv"
+    if not log_path.exists():
+        return None
+    last_alpha: float | None = None
+    with open(log_path, "r", newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            try:
+                value = float(row.get("alpha", ""))
+            except (TypeError, ValueError):
+                continue
+            if value == value:  # skip NaN
+                last_alpha = value
+    return last_alpha
+
+
+def _apply_post_restore_replay_warmup(algorithm, warmup_steps: int) -> None:
+    """Delay SAC learner updates after a checkpoint restore.
+
+    algorithm.restore() only restores policy/critic weights: RLlib's new API
+    stack checkpoint format (Algorithm.get_state()/set_state()) never
+    serializes local_replay_buffer, so continued training resumes into an
+    empty buffer while RLlib's own num_steps_sampled_before_learning_starts
+    gate is keyed off lifetime env steps sampled -- a value the restored
+    checkpoint already exceeds, so it does not re-arm on restore. Raising
+    that gate relative to the current lifetime step count forces
+    training_step() (see ray.rllib.algorithms.dqn.dqn._training_step_new_api_stack)
+    to only sample-and-store for `warmup_steps` fresh steps before the first
+    post-restore learner update runs, giving the buffer a chance to refill
+    with on-policy experience instead of learning off a near-empty buffer.
+
+    AlgorithmConfig is frozen after build_algo(), so the gate is bumped via
+    object.__setattr__ to bypass the frozen check -- this only overrides a
+    single scalar threshold read fresh on every training_step() call, not
+    any structural config.
+    """
+    from ray.rllib.utils.metrics import ENV_RUNNER_RESULTS, NUM_ENV_STEPS_SAMPLED_LIFETIME
+
+    current_ts = algorithm.metrics.peek(
+        (ENV_RUNNER_RESULTS, NUM_ENV_STEPS_SAMPLED_LIFETIME), default=0
+    )
+    warmup_threshold = int(current_ts) + int(warmup_steps)
+    object.__setattr__(
+        algorithm.config,
+        "num_steps_sampled_before_learning_starts",
+        warmup_threshold,
+    )
+    print(
+        f"[replay_warmup] lifetime env steps at restore={current_ts}; "
+        f"delaying learner updates until {warmup_threshold} "
+        f"(+{warmup_steps} fresh steps) to refill the replay buffer"
+    )
+
+
 def env_creator(env_config):
     cfg = dict(env_config)
     cfg["_runner_index"] = getattr(
@@ -577,6 +649,36 @@ def parse_args():
         help="SAC replay buffer capacity. Ignored by PPO.",
     )
     parser.add_argument(
+        "--initial-alpha",
+        type=float,
+        default=None,
+        help=(
+            "SAC entropy coefficient (temperature) starting value. Only "
+            "meaningful for the sac algorithm. If unset and --restore-checkpoint "
+            "is used, automatically inferred from the source run's own last "
+            "logged alpha (see --auto-restore-alpha to disable). RLlib's SAC "
+            "temperature (curr_log_alpha) is a raw learner-side tensor, not part "
+            "of the RLModule or captured by the optimizer state_dict, so "
+            "algorithm.restore() silently resets it to this value's default "
+            "(1.0) even when the source checkpoint had converged to something "
+            "very different -- reintroducing a large entropy-pressure mismatch "
+            "against actor/critic weights tuned for the lower value."
+        ),
+    )
+    parser.add_argument(
+        "--auto-restore-alpha",
+        dest="auto_restore_alpha",
+        action="store_true",
+        default=True,
+        help="Auto-infer --initial-alpha from the restored checkpoint's training_log.csv (default on).",
+    )
+    parser.add_argument(
+        "--no-auto-restore-alpha",
+        dest="auto_restore_alpha",
+        action="store_false",
+        help="Disable auto-inferring --initial-alpha on restore; use the SAC default (1.0) unless --initial-alpha is set explicitly.",
+    )
+    parser.add_argument(
         "--model-fcnet-hiddens",
         default=None,
         help="Comma-separated RLlib model hidden sizes, e.g. 512,256,128.",
@@ -695,6 +797,24 @@ def parse_args():
         "--restore-checkpoint",
         default="",
         help="Restore a full RLlib native checkpoint before training.",
+    )
+    parser.add_argument(
+        "--replay-warmup-steps",
+        type=int,
+        default=0,
+        help=(
+            "Only meaningful with --restore-checkpoint. algorithm.restore() "
+            "restores policy/critic weights but NOT the SAC replay buffer "
+            "contents (RLlib's new API stack checkpoint format does not "
+            "serialize it), so continued training resumes into an empty "
+            "buffer. RLlib's own num_steps_sampled_before_learning_starts "
+            "warmup gate is keyed off lifetime env steps, which the restored "
+            "checkpoint already exceeds, so it does not re-trigger on "
+            "restore either. Setting this >0 raises that gate by this many "
+            "steps counted from the restore point, delaying learner updates "
+            "until the buffer has refilled with fresh post-restore "
+            "experience (0 = old behavior, no warmup)."
+        ),
     )
     parser.add_argument(
         "--init-bundle",
@@ -823,6 +943,7 @@ def _build_algorithm_args(args) -> dict:
         "clip_param": args.clip_param,
         "tau": args.tau,
         "target_entropy": args.target_entropy,
+        "initial_alpha": args.initial_alpha,
         "replay_buffer_capacity": args.replay_buffer_capacity,
         "model_config": _build_model_config_args(args),
         "network_spec": args.network_spec_json,
@@ -1179,6 +1300,23 @@ def main():
         )
     _sync_lstm_args_from_init_bundle(args)
 
+    if args.restore_checkpoint and args.auto_restore_alpha and args.initial_alpha is None:
+        inferred_alpha = _infer_restore_initial_alpha(Path(args.restore_checkpoint))
+        if inferred_alpha is not None:
+            args.initial_alpha = inferred_alpha
+            print(
+                f"[restore_alpha] inferred initial_alpha={inferred_alpha} from "
+                f"{args.restore_checkpoint}'s training_log.csv (RLlib does not "
+                "restore SAC's alpha value on checkpoint restore, only its "
+                "optimizer momentum state)"
+            )
+        else:
+            print(
+                f"[restore_alpha] could not infer alpha from "
+                f"{args.restore_checkpoint} (no training_log.csv found); "
+                "using SAC default initial_alpha=1.0"
+            )
+
     env_config = {
         "observation_mode": args.observation_mode,
         "target_mode": args.target_mode,
@@ -1230,6 +1368,8 @@ def main():
             raise FileNotFoundError(f"restore checkpoint not found: {checkpoint_path}")
         print(f"restoring native RLlib checkpoint from {checkpoint_path}")
         algorithm.restore(str(checkpoint_path))
+        if args.replay_warmup_steps > 0:
+            _apply_post_restore_replay_warmup(algorithm, args.replay_warmup_steps)
     elif args.init_bundle:
         bundle_path = Path(args.init_bundle)
         if not bundle_path.exists():

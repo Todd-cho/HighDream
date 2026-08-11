@@ -126,6 +126,10 @@ def build_argv(exp: dict[str, Any], exp_path: Path) -> tuple[Path, list[str]]:
             )
         argv.append("--resume")
     _add_optional(argv, "--restore-checkpoint", runtime, "restore_checkpoint")
+    _add_optional(argv, "--replay-warmup-steps", runtime, "replay_warmup_steps")
+    _add_optional(argv, "--initial-alpha", runtime, "initial_alpha")
+    if runtime.get("auto_restore_alpha") is False:
+        argv.append("--no-auto-restore-alpha")
     init_bundle = runtime.get("init_bundle")
     if init_bundle is None:
         init_bundle = runtime.get("restart_from_bundle")

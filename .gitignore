@@ -122,12 +122,15 @@ ray_results/
 /src/**
 !/src/dogfight/
 /src/dogfight/**
+!/src/dogfight/config.py
 !/src/dogfight/ai/
 /src/dogfight/ai/**
 !/src/dogfight/ai/rllib_utils.py
+!/src/dogfight/ai/scripted_pursuit_provider.py
 !/src/dogfight/envs/
 /src/dogfight/envs/**
 !/src/dogfight/envs/single_agent_env.py
+!/src/dogfight/envs/reward.py
 
 # Official dashboard/viewer is supplied unchanged by Release_260727.
 /tools/
