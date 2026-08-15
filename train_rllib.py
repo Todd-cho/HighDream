@@ -37,6 +37,7 @@ from dogfight.ai.dashboard_logger import (
 from dogfight.ai.engagement_replay_logger import EngagementReplayLogger
 from dogfight.ai.policy_probe_logger import PolicyProbeLogger
 from dogfight.ai.rllib_utils import build_algorithm_config, normalize_algorithm_name
+from dogfight.ai.scripted_pursuit_provider import ScriptedPursuitActionProvider
 from dogfight.ai.student_hooks import load_observation_hook, load_reward_hook
 from dogfight.ai.training.config_io import deep_update, load_experiment_env_config
 from dogfight.ai.training_record import save_training_record
@@ -163,8 +164,21 @@ def env_creator(env_config):
         cfg["observation_mode"] = observation_hook["mode"]
         cfg["observation_module"] = observation_module
         cfg["observation_summary"] = observation_hook["description"]
+    target_action_provider = None
+    if str(cfg.get("target_mode", "")) == "scripted_pursuit":
+        # 2026-08-12: lets a training rollout worker use the same non-learned,
+        # genuinely active pursuit opponent validated in
+        # scripts/adhoc_scripted_pursuit_eval.py (see that file's docstring --
+        # behavior_tree/autopilot target modes are both broken/self-crashing).
+        # This bypasses the string-dispatched target_mode branches in
+        # DogFightEnv._step_target_aircraft entirely (it short-circuits
+        # whenever target_action_provider is not None), so the YAML/CLI
+        # target_mode value itself never needs to be a recognized branch there.
+        scripted_pursuit_cfg = cfg.get("target_scripted_pursuit", {}) or {}
+        target_action_provider = ScriptedPursuitActionProvider(**scripted_pursuit_cfg)
     env = DogFightWrapper(
         cfg,
+        target_action_provider=target_action_provider,
         reward_fn=reward_fn,
         observation_fn=observation_hook["build_observation"] if observation_hook else None,
         observation_size=observation_hook["size"] if observation_hook else None,
@@ -624,7 +638,7 @@ def parse_args():
     parser.add_argument(
         "--target-mode",
         default="behavior_tree",
-        choices=["behavior_tree", "fixed", "loiter", "autopilot"],
+        choices=["behavior_tree", "fixed", "loiter", "autopilot", "pursuit_autopilot", "scripted_pursuit"],
     )
     parser.add_argument("--target-behavior-dll", default="AIP_BASE_target.dll")
     parser.add_argument(
