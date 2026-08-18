@@ -169,6 +169,20 @@ def is_excellent(m: dict[str, float], wez_prev: float) -> bool:
     )
 
 
+def _far_range_maxed_out(params: dict[str, float]) -> bool:
+    """True once every far-range/attack-range lever is already pinned at its bound.
+
+    Pushing these further is a no-op under clamp(); once maxed, the tuner needs to
+    fall through to the aim levers (ata_scale/aa_scale) instead of re-trying a push
+    that can't change anything.
+    """
+    return (
+        params["far_range_penalty_start_m"] <= BOUNDS["far_range_penalty_start_m"][0]
+        and params["far_range_penalty"] >= BOUNDS["far_range_penalty"][1]
+        and params["attack_range_bonus"] >= BOUNDS["attack_range_bonus"][1]
+    )
+
+
 def decide_next_params(history: list[dict[str, Any]]) -> tuple[dict[str, float], list[str]]:
     cur = history[-1]
     prev = history[-2] if len(history) > 1 else None
@@ -201,8 +215,12 @@ def decide_next_params(history: list[dict[str, Any]]) -> tuple[dict[str, float],
         )
         return params, reasons
 
-    # 2) crash는 안전. Mean Range가 아직 너무 크면: far_range 계열 + attack_range_bonus 전진
-    if mean_dist_now > MEAN_DIST_TARGET_M:
+    far_range_maxed = _far_range_maxed_out(params)
+
+    # 2) crash는 안전. Mean Range가 아직 너무 크고 far_range 계열이 아직 한계값이
+    #    아니면 전진. 이미 한계값이면 더 눌러봐야 clamp에 막혀 아무것도 안 바뀌므로
+    #    바로 3)의 조준(ata/aa_scale) 쪽으로 넘어간다.
+    if mean_dist_now > MEAN_DIST_TARGET_M and not far_range_maxed:
         params["far_range_penalty_start_m"] = clamp(
             params["far_range_penalty_start_m"] + STEP["far_range_penalty_start_m"],
             "far_range_penalty_start_m",
@@ -219,12 +237,19 @@ def decide_next_params(history: list[dict[str, Any]]) -> tuple[dict[str, float],
         )
         return params, reasons
 
-    # 3) crash 안전 + Mean Range 양호. WEZ Steps가 아직 0이면: ata/aa_scale 전진
+    if mean_dist_now > MEAN_DIST_TARGET_M and far_range_maxed:
+        reasons.append(
+            f"Mean Range 여전히 큼({mean_dist_now:.0f}m)이지만 far_range/attack_range_bonus가 "
+            "이미 한계값에 도달 -> 조준(ata/aa_scale) 쪽으로 전환"
+        )
+
+    # 3) crash 안전 + (Mean Range 양호 or far_range 한계 도달). WEZ Steps가 아직
+    #    0이면: ata/aa_scale 전진
     if wez_now == 0.0:
         params["ata_scale"] = clamp(params["ata_scale"] + STEP["ata_scale"], "ata_scale")
         params["aa_scale"] = clamp(params["aa_scale"] + STEP["aa_scale"], "aa_scale")
         reasons.append(
-            f"crash/Mean Range 양호, WEZ Steps=0, final_ata_deg={ata_now:.1f} -> ata/aa_scale 전진"
+            f"WEZ Steps=0, final_ata_deg={ata_now:.1f} -> ata/aa_scale 전진"
         )
         return params, reasons
 
