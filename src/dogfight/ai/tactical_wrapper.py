@@ -294,6 +294,32 @@ class TacticalWrapperConfig:
     # turn/climb performance available regardless of what RL's raw output does.
     neutral_throttle: float = 0.9
 
+    # Roll commitment / anti-chattering (added 2026-08-21, user diagnosis
+    # after run17: roll_cmd was observed flipping sign repeatedly within
+    # ~2s during post-merge reacquisition -- a pure closed-loop P(+PN) law
+    # on the instantaneous LOS azimuth has no memory, so it can reverse
+    # direction every tick as az swings through fast-changing values at
+    # close range, wasting time rebuilding bank angle each reversal instead
+    # of completing one committed turn. None of tonight's gain/threshold
+    # tuning touched this -- it's a different, structural problem. Outside
+    # fine-track range (|az|>=roll_deadband_deg), roll now commits hard to
+    # ONE direction (+-roll_commit_magnitude) and holds it for at least
+    # roll_commit_hold_s, only flipping once az has clearly reversed past
+    # deadband+hysteresis for that long -- approximates "bank to a turn
+    # angle and hold" instead of continuously chasing the instantaneous
+    # bearing. Inside fine-track range the existing proportional+PN law
+    # still applies unchanged (precision holding needs the opposite
+    # behavior -- small continuous corrections, not commitment).
+    roll_deadband_deg: float = 3.0
+    roll_commit_hysteresis_deg: float = 10.0
+    roll_commit_hold_s: float = 1.0
+    roll_commit_magnitude: float = 1.0
+    # Final EMA smoothing on the blended roll_cmd (2026-08-21) -- independent
+    # of the commitment logic above (which prevents chattering DIRECTION),
+    # this smooths chattering MAGNITUDE/high-frequency noise from the SAC
+    # blend component and the fine-track proportional law.
+    roll_cmd_smoothing_alpha: float = 0.4
+
 
 class TacticalWrapperActionProvider(ActionProvider):
     """Wraps `inner` (typically an RLActionProvider) with a rule-based
@@ -315,6 +341,9 @@ class TacticalWrapperActionProvider(ActionProvider):
         self._high_cmd_start_time: float | None = None
         self._high_cmd_start_ata: float | None = None
         self._disengage_until: float | None = None
+        self._roll_commit_sign: int = 0
+        self._roll_commit_time: float | None = None
+        self._smoothed_roll_cmd: float = 0.0
         self.state_log: list[str] = []
 
     def reset(self, context: ActionContext | None = None) -> None:
@@ -330,6 +359,9 @@ class TacticalWrapperActionProvider(ActionProvider):
         self._high_cmd_start_time = None
         self._high_cmd_start_ata = None
         self._disengage_until = None
+        self._roll_commit_sign = 0
+        self._roll_commit_time = None
+        self._smoothed_roll_cmd = 0.0
         self.state_log = []
 
     def compute_action(self, context: ActionContext) -> ActionResult:
@@ -597,10 +629,49 @@ class TacticalWrapperActionProvider(ActionProvider):
         in_fine_track = abs(az) < cfg.fine_track_threshold_deg or abs(el) < cfg.fine_track_threshold_deg
         los_rate_gain = cfg.los_rate_gain_fine if in_fine_track else cfg.los_rate_gain_coarse
 
-        roll_cmd = float(np.clip(
+        roll_cmd_raw = float(np.clip(
             cfg.roll_gain * az / roll_norm + los_rate_gain * self._smoothed_az_rate / cfg.los_rate_norm_degps,
             -1.0, 1.0,
         ))
+
+        # Roll commitment (2026-08-21, see TacticalWrapperConfig's
+        # roll_deadband_deg comment) -- outside fine-track range, commit
+        # hard to one direction and hold it instead of continuously
+        # rechasing the raw proportional-law output. Inside fine-track
+        # range the precise law above applies directly (precision holding
+        # needs small continuous corrections, not commitment).
+        if abs(az) < cfg.fine_track_threshold_deg:
+            roll_cmd = roll_cmd_raw
+            self._roll_commit_sign = 1 if az >= 0 else -1
+            self._roll_commit_time = sim_time
+        else:
+            if az > cfg.roll_deadband_deg:
+                desired_sign = 1
+            elif az < -cfg.roll_deadband_deg:
+                desired_sign = -1
+            else:
+                desired_sign = self._roll_commit_sign or (1 if roll_cmd_raw >= 0 else -1)
+            if self._roll_commit_sign != 0 and desired_sign != self._roll_commit_sign:
+                held_long_enough = (
+                    self._roll_commit_time is not None
+                    and (sim_time - self._roll_commit_time) >= cfg.roll_commit_hold_s
+                )
+                reversed_clearly = abs(az) > cfg.roll_deadband_deg + cfg.roll_commit_hysteresis_deg
+                if not (held_long_enough and reversed_clearly):
+                    desired_sign = self._roll_commit_sign
+            if desired_sign != self._roll_commit_sign:
+                self._roll_commit_sign = desired_sign
+                self._roll_commit_time = sim_time
+            roll_cmd = cfg.roll_commit_magnitude * self._roll_commit_sign
+
+        # Final EMA smoothing (separate from the commitment logic above,
+        # which prevents DIRECTION chattering -- this smooths magnitude/
+        # high-frequency noise, mainly relevant inside fine-track range
+        # where roll_cmd is still the raw proportional+PN value).
+        alpha_r = cfg.roll_cmd_smoothing_alpha
+        self._smoothed_roll_cmd = alpha_r * roll_cmd + (1.0 - alpha_r) * self._smoothed_roll_cmd
+        roll_cmd = float(np.clip(self._smoothed_roll_cmd, -1.0, 1.0))
+
         # pitch_cmd=+1.0 is nose-DOWN (verified convention, single_agent_env.py
         # _apply_safety_override docstring) -- positive el (target above) must
         # command negative pitch_cmd (pull up).
