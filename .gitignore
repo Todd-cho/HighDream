@@ -103,6 +103,9 @@ ray_results/
 /Rule_forTraining.xml
 /run_local_dogfight.py
 /run_unreal_inference.py
+# 2026-08-21: added --tactical-wrapper/--action-rate-limit/--damage-log-csv
+# CLI flags directly in this file tonight -- un-ignore to track our changes.
+!/run_unreal_inference.py
 
 # Official experiment examples already included in Release_260727
 /experiments/student_mixed_initial_sac_lstm.yaml
@@ -127,10 +130,15 @@ ray_results/
 /src/dogfight/ai/**
 !/src/dogfight/ai/rllib_utils.py
 !/src/dogfight/ai/scripted_pursuit_provider.py
+!/src/dogfight/ai/tactical_wrapper.py
 !/src/dogfight/envs/
 /src/dogfight/envs/**
 !/src/dogfight/envs/single_agent_env.py
 !/src/dogfight/envs/reward.py
+!/src/dogfight/unreal/
+/src/dogfight/unreal/**
+!/src/dogfight/unreal/policies.py
+!/src/dogfight/unreal/client.py
 
 # Official dashboard/viewer is supplied unchanged by Release_260727.
 /tools/

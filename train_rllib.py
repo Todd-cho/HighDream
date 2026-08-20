@@ -628,7 +628,7 @@ def parse_args():
     parser.add_argument(
         "--observation-mode",
         default="tactical16",
-        choices=["classic12", "relative14", "tactical16", "custom"],
+        choices=["classic12", "relative14", "tactical16", "tactical19", "custom"],
     )
     parser.add_argument(
         "--observation-module",

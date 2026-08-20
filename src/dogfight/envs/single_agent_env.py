@@ -94,6 +94,7 @@ class DogFightEnv(gym.Env):
         self._target_ai = None
         self._ownship_action_provider = ownship_action_provider
         self._target_action_provider = target_action_provider
+        self._prev_applied_action: np.ndarray | None = None
 
         self.config = merge_env_config(env_config)
         self._base_target_mode = str(self.config["target_mode"])
@@ -151,7 +152,7 @@ class DogFightEnv(gym.Env):
                 shape=(self.num_observation,),
                 dtype=np.float32,
             )
-        elif self._observation_mode == "tactical16":
+        elif self._observation_mode in ("tactical16", "tactical19"):
             self.observation_space = gym.spaces.Box(
                 low=-1.0, high=1.0, shape=(self.num_observation,), dtype=np.float32
             )
@@ -305,6 +306,32 @@ class DogFightEnv(gym.Env):
         sim_action[3] = 1.0   # full throttle (already [0,1] in sim format)
         return sim_action
 
+    def _apply_action_rate_limit(self, action: np.ndarray) -> np.ndarray:
+        """Clamp the per-step change in the ownship's own raw roll/pitch/yaw
+        command (indices 0-2 only -- throttle at index 3 is left alone).
+        Applied to the policy's raw action BEFORE _apply_safety_override, so
+        the emergency override is never blunted by this. See config.py's
+        action_rate_limit comment for the motivating symptom (every live
+        test this session showed the policy commanding full +-1.0
+        roll/pitch from the first frame and staying saturated for 75-84% of
+        the flight)."""
+        limit = self.config.get("action_rate_limit")
+        action = np.asarray(action, dtype=np.float32)
+        if limit is None:
+            self._prev_applied_action = action.copy()
+            return action
+        limit = float(limit)
+        if self._prev_applied_action is None:
+            limited = action.copy()
+        else:
+            limited = action.copy()
+            delta = np.clip(
+                action[:3] - self._prev_applied_action[:3], -limit, limit
+            )
+            limited[:3] = np.clip(self._prev_applied_action[:3] + delta, -1.0, 1.0)
+        self._prev_applied_action = limited.copy()
+        return limited
+
     def _build_ai(self, dll_name):
         if not dll_name:
             return None
@@ -326,6 +353,7 @@ class DogFightEnv(gym.Env):
 
     def reset(self, *, seed: Optional[int] = None, options: Optional[dict] = None):
         super().reset(seed=seed)
+        self._prev_applied_action = None
         if options:
             self.config = merge_env_config({**self.config, **options})
             if "target_mode" in options:
@@ -540,7 +568,28 @@ class DogFightEnv(gym.Env):
                 return "loss"
             return "draw"
         if truncated:
-            return "timeout"
+            # Competition rule (slide 11): "200 seconds of engagement -- deal
+            # more damage to the opponent OR shoot them down to win" -- a
+            # timeout is NOT automatically a draw, it's scored by relative
+            # damage dealt, same as a live match ending the clock with both
+            # aircraft still flying. Previously this branch always returned
+            # "timeout" regardless of who took more damage, silently
+            # collapsing "never engaged" and "won the damage race but didn't
+            # get a kill" into the same outcome -- and my_reward*.py's
+            # terminal_reward mirrored that bug, giving draw_reward for both
+            # cases. That meant the policy never got a terminal reward
+            # signal for the single most common real winning condition in
+            # this env (a training-time timeout is the overwhelming majority
+            # of episodes, and a live opponent scores hits without landing a
+            # kill routinely) -- discovered 2026-08-20 from a live
+            # DogFightViewer match ending in a loss that this env's own
+            # eval would have logged as "timeout".
+            # Higher remaining health = took LESS damage = ahead on points.
+            if ownship_health > target_health:
+                return "win"
+            if target_health > ownship_health:
+                return "loss"
+            return "draw"
         return "ongoing"
 
     def _compute_step_reward(
@@ -630,7 +679,8 @@ class DogFightEnv(gym.Env):
                 self.pre_obs,
             )
             result = self._ownship_action_provider.compute_action(context)
-            self._sim.step(self._apply_safety_override(np.asarray(result.action, dtype=np.float32)))
+            limited = self._apply_action_rate_limit(np.asarray(result.action, dtype=np.float32))
+            self._sim.step(self._apply_safety_override(limited))
             return
 
         control_mode = self.config["ownship_control_mode"]
@@ -642,7 +692,8 @@ class DogFightEnv(gym.Env):
             loiter = self.config["target_loiter"]
             self._sim.step_loiter(loiter["enabled"], loiter["bank"], loiter["pitch"])
         else:
-            self._sim.step(self._apply_safety_override(self._to_sim_action(action)))
+            limited = self._apply_action_rate_limit(np.asarray(action, dtype=np.float32))
+            self._sim.step(self._apply_safety_override(self._to_sim_action(limited)))
 
     def _step_target_aircraft(self) -> None:
         if self._target_action_provider is not None:
@@ -740,7 +791,11 @@ class DogFightEnv(gym.Env):
                 )
             return observation
 
-        wez_cfg = self._wez if self._observation_mode == "tactical16" else None
+        wez_cfg = (
+            self._wez
+            if self._observation_mode in ("tactical16", "tactical19")
+            else None
+        )
         return build_observation(
             self._observation_mode,
             ownship_state,

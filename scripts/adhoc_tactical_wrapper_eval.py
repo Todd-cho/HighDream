@@ -1,25 +1,18 @@
-"""Frozen (deterministic, no exploration noise) evaluation of
-stage6j_scripted_pursuit_opponent_50iter -- the first checkpoint ever
-trained (not just evaluated) against ScriptedPursuitActionProvider, a
-genuinely active/closing opponent -- against that same active opponent.
+"""Frozen (deterministic) evaluation of a checkpoint wrapped by
+TacticalWrapperActionProvider (src/dogfight/ai/tactical_wrapper.py) --
+the no-retrain supervisory layer from the 2026-08-20 design doc
+(주최조건_1대1_계층형전술_v3_v4_설계전략.txt, section 4.2): blends the
+existing SAC policy with a rule-based lead-pursuit controller based on a
+Neutral/Offensive/Overshoot hysteresis state machine, so high-ATA starts
+(the 91deg competition condition) get handled by rules instead of by a
+policy that never trained on them.
 
-Background: this run's own training-exploration numbers (printed by
-scripts/run_stage6j_scripted_pursuit_pilot.py) showed episode_crash_rate=0.8
-(4/5) and wez_episode_rate=0.0 over its 50-iteration window. Per rule 15
-(training-exploration episodes have repeatedly given a false read this
-project, in both directions), that number is not trustworthy on its own --
-small n (5), taken entirely within the post-restore replay-buffer-refill
-window (rule 14), and with SAC's exploration noise added to actions, all of
-which can make True performance look worse (or better) than it is. This
-freezes the policy (RLActionProvider explore=False) and reruns it on the
-exact scenario/reward config it trained under, against the same
-ScriptedPursuitActionProvider (cruise_altitude_m read from the tag's own
-training config, not a mismatched hardcoded default), with the hard safety
-override enabled (matches how the current official-best candidate,
-stage6e_delta_down_400iter+safety override, is actually being evaluated/
-deployed), at the real regulation max_engage_time=200s.
+Same scenario/reward/opponent config as adhoc_scripted_pursuit_eval_stage6j.py
+(loaded from the tag's own training YAML), same safety override -- only
+difference is the ownship provider is wrapped. Pass --plain to run the same
+tag WITHOUT the wrapper for a same-script A/B baseline.
 
-Usage: python scripts/adhoc_scripted_pursuit_eval_stage6j.py [--episodes 20] [--max-engage-time 200]
+Usage: python scripts/adhoc_tactical_wrapper_eval.py --tag <tag> [--episodes 30] [--plain]
 """
 from __future__ import annotations
 
@@ -40,76 +33,49 @@ from dogfight.ai.rllib_utils import build_algorithm_from_bundle
 from dogfight.ai.rl_action_provider import RLActionProvider
 from dogfight.ai.scripted_pursuit_provider import ScriptedPursuitActionProvider
 from dogfight.ai.student_hooks import load_reward_hook
+from dogfight.ai.tactical_wrapper import TacticalWrapperActionProvider, TacticalWrapperConfig
 from scripts.run_stage6g_frozen_eval import load_training_env_config
 
-DEFAULT_TAG = "altitude_attack_followup_v1_stage6j_scripted_pursuit_opponent_50iter_C10"
 MODEL_ROOT = ROOT / "artifacts" / "models" / "highdream"
 FROZEN_EVAL_ROOT = ROOT / "artifacts" / "altitude_attack_followup_v1" / "frozen_eval"
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--tag", default=DEFAULT_TAG,
-        help="Output tag of the checkpoint to evaluate (2026-08-12: generalized "
-             "from a hardcoded stage6j-only TAG so this script is reusable "
-             "across future scripted_pursuit-trained variants, e.g. stage6k).",
-    )
-    parser.add_argument("--episodes", type=int, default=20)
+    parser.add_argument("--tag", required=True)
+    parser.add_argument("--episodes", type=int, default=30)
     parser.add_argument("--max-engage-time", type=float, default=200.0)
     parser.add_argument("--seed", type=int, default=269000)
-    parser.add_argument(
-        "--safety-override-altitude-m", type=float, default=None,
-        help=(
-            "Override the hard safety override's fixed_trigger altitude. "
-            "Default (unset) keeps whatever the tag trained with, or 1500.0 "
-            "as a last resort for older tags trained before "
-            "safety_override_enabled existed in the training config."
-        ),
-    )
-    parser.add_argument(
-        "--safety-override-time-horizon-s", type=float, default=None,
-        help="Override the hard safety override's predictive time horizon. Same fallback rule as altitude-m.",
-    )
+    parser.add_argument("--plain", action="store_true", help="Skip the tactical wrapper (A/B baseline).")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     tag = args.tag
-    out_dir = FROZEN_EVAL_ROOT / f"{tag}__scripted_pursuit__safety"
+    suffix = "plain" if args.plain else "tactical_wrapper"
+    out_dir = FROZEN_EVAL_ROOT / f"{tag}__scripted_pursuit__{suffix}"
     reward_module, env_config = load_training_env_config(tag)
     reward_fn, _ = load_reward_hook(reward_module)
 
     env_config["max_engage_time"] = args.max_engage_time
     env_config["safety_override_enabled"] = True
-    # Prefer whatever the tag trained with (2026-08-19: newer tags can set
-    # safety_override_enabled/thresholds in their own training config so the
-    # policy actually experiences the override instead of meeting it fresh
-    # at eval time) -- CLI args win if passed, else the loaded training
-    # config's own values, else the old 1500/25 hardcoded fallback for tags
-    # trained before this config existed.
-    env_config["safety_override_altitude_m"] = (
-        args.safety_override_altitude_m
-        if args.safety_override_altitude_m is not None
-        else env_config.get("safety_override_altitude_m", 1500.0)
-    )
-    env_config["safety_override_time_horizon_s"] = (
-        args.safety_override_time_horizon_s
-        if args.safety_override_time_horizon_s is not None
-        else env_config.get("safety_override_time_horizon_s", 25.0)
-    )
+    env_config["safety_override_altitude_m"] = env_config.get("safety_override_altitude_m", 1500.0)
+    env_config["safety_override_time_horizon_s"] = env_config.get("safety_override_time_horizon_s", 25.0)
 
     pursuit_cfg = env_config.get("target_scripted_pursuit", {}) or {}
 
     out_dir.mkdir(parents=True, exist_ok=True)
     env_config["episode_summary_path"] = str(out_dir / "episode_summary.csv")
 
-    ownship_provider = RLActionProvider(
+    rl_provider = RLActionProvider(
         bundle_dir=MODEL_ROOT / tag,
         algorithm_factory=build_algorithm_from_bundle,
         policy_id="default_policy",
         explore=False,
+    )
+    ownship_provider = rl_provider if args.plain else TacticalWrapperActionProvider(
+        rl_provider, TacticalWrapperConfig()
     )
     target_provider = ScriptedPursuitActionProvider(**pursuit_cfg)
     env = DogFightWrapper(
@@ -118,13 +84,17 @@ def main() -> int:
         target_action_provider=target_provider,
         reward_fn=reward_fn,
     )
+    state_counts: dict[str, int] = {}
     try:
         for episode_number in range(1, args.episodes + 1):
             env.reset(seed=args.seed + episode_number)
             terminated = truncated = False
             while not (terminated or truncated):
                 _, _, terminated, truncated, _ = env.step(np.zeros(4, dtype=np.float32))
-            print(f"[pursuit-eval] episode {episode_number}/{args.episodes}")
+            print(f"[tactical-wrapper-eval] episode {episode_number}/{args.episodes}")
+            if isinstance(ownship_provider, TacticalWrapperActionProvider):
+                for s in ownship_provider.state_log:
+                    state_counts[s] = state_counts.get(s, 0) + 1
     finally:
         env.close()
 
@@ -149,22 +119,22 @@ def main() -> int:
     min_distances = [v for row in rows if (v := num(row, "min_distance_m")) is not None]
     wez_steps = [v for row in rows if (v := num(row, "wez_steps")) is not None]
     target_healths = [v for row in rows if (v := num(row, "target_health")) is not None]
-    override_steps = [v for row in rows if (v := num(row, "safety_override_steps")) is not None]
 
-    print(f"\n[done] episodes={len(rows)} crash={crashes} win={wins} loss={losses} draw={draws}")
+    print(f"\n[done] mode={suffix} episodes={len(rows)} crash={crashes} win={wins} loss={losses} draw={draws}")
     print(f"  minimum_altitude_mean_m={sum(altitudes)/len(altitudes) if altitudes else None:.1f}")
     print(f"  minimum_altitude_worst_m={min(altitudes) if altitudes else None}")
     print(f"  mean_distance_m={sum(distances)/len(distances) if distances else None:.1f}")
     print(f"  min_distance_mean_m={sum(min_distances)/len(min_distances) if min_distances else None:.1f}")
     print(f"  wez_episode_rate={sum(v > 0.0 for v in wez_steps)/len(wez_steps) if wez_steps else None}")
     print(f"  mean_target_damage={1 - sum(target_healths)/len(target_healths) if target_healths else None}")
-    print(f"  safety_override_episode_rate={sum(v > 0.0 for v in override_steps)/len(override_steps) if override_steps else None}")
+    if state_counts:
+        total = sum(state_counts.values())
+        print(f"  tactical state distribution: " + ", ".join(f"{k}={v/total*100:.1f}%" for k, v in state_counts.items()))
     print()
     for i, row in enumerate(rows, 1):
-        print(i, row.get("outcome"), row.get("end_condition"), row.get("steps"),
+        print(i, row.get("scenario_name"), row.get("outcome"), row.get("end_condition"),
               row.get("minimum_altitude_m"), row.get("min_distance_m"), row.get("mean_distance_m"),
-              row.get("wez_steps"), row.get("target_health"), row.get("ownship_health"),
-              row.get("safety_override_steps"))
+              row.get("wez_steps"), row.get("target_health"), row.get("ownship_health"))
     return 0
 
 

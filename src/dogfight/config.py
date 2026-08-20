@@ -38,6 +38,23 @@ DEFAULT_ENV_CONFIG = {
     # is an unconditional backstop independent of the rate estimate.
     "safety_override_time_horizon_s": 15.0,
     "safety_override_hard_floor_m": 400.0,
+    # Max |delta| PER PHYSICS TICK (60Hz, i.e. per _step_controlled_aircraft
+    # call inside the step_ratio loop -- NOT per RL env.step()/decision) on
+    # the ownship's own raw roll/pitch/yaw command (indices 0-2 only --
+    # throttle is left unrestricted). A value here is a physically meaningful
+    # "max command rate of change per real second" (value * 60) that stays
+    # consistent regardless of step_ratio or how often the caller re-decides
+    # (training's raw-action path holds one action for the whole
+    # step_ratio loop; RLActionProvider-driven eval/live re-decides every
+    # tick) -- e.g. 0.05 here means ~3.0/s, full range in ~0.33s. Empirically
+    # verified 2026-08-20 (0.3 was too large: fully saturates within a single
+    # step_ratio=6 RL step; 0.05 ramps smoothly over ~4 RL steps instead).
+    # Added after every live-Unreal test this session showed the policy
+    # commanding full +-1.0 roll/pitch from frame 1 and staying saturated
+    # 75-84% of the flight, consistent with a real, uncontrolled tumble
+    # rather than reasoned maneuvering. None (default) disables -- existing
+    # checkpoints are unaffected unless explicitly opted in via env_config.
+    "action_rate_limit": None,
     "observation_mode": "classic12",
     "ownship_control_mode": "rl",
     "target_mode": "behavior_tree",
