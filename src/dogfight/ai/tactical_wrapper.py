@@ -573,7 +573,16 @@ class TacticalWrapperActionProvider(ActionProvider):
         pitched steeply up, regardless of how high above the ground that
         is."""
         cfg = self.cfg
-        pitch = abs(own_pitch_deg)
+        # BUG FIX (2026-08-21, user diagnosis from run0045 pitch pulse log):
+        # this used to be abs(own_pitch_deg), which treats a -69deg STEEP
+        # DIVE identically to a +69deg excessive climb -- forcing
+        # climb_floor toward 0.0 (blocking further nose-up pull) during an
+        # actual dive, exactly when recovery pull-up is needed most. This
+        # ramp is only meant to restrict the POSITIVE (climbing/nose-up
+        # attitude) direction; dropping abs() means a negative (diving)
+        # own_pitch_deg always satisfies pitch<=climb_ramp_start_deg and
+        # returns -1.0 (no restriction), which is correct.
+        pitch = own_pitch_deg
         if pitch <= cfg.climb_ramp_start_deg:
             return -1.0
         if pitch >= cfg.max_climb_pitch_deg:

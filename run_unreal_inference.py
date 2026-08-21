@@ -28,7 +28,24 @@ from dogfight.unreal.policies import SafetyOverrideCommandPolicy, SafetyOverride
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RL/BT/Hybrid inference and communicate with the Unreal AI server over UDP.")
-    parser.add_argument("--mode", choices=["rl", "bt", "hybrid"], required=True, help="Inference backend to use.")
+    parser.add_argument("--mode", choices=["rl", "bt", "hybrid", "pulse", "w1"], required=True, help="Inference backend to use.")
+    parser.add_argument(
+        "--pulse-sequence",
+        choices=["roll", "pitch", "pitch_trim", "roll_inertia"],
+        default="roll",
+        help=(
+            "--mode pulse only: which fixed-command step sequence to send "
+            "(open-loop, no RL/geometry) for live system identification -- "
+            "see src/dogfight/ai/pulse_test_provider.py. The resulting "
+            "--log-csv own_roll_deg/own_pitch_deg trace IS the measured "
+            "step response."
+        ),
+    )
+    parser.add_argument(
+        "--pulse-loop",
+        action="store_true",
+        help="--mode pulse only: repeat the sequence forever instead of holding the last step.",
+    )
     parser.add_argument("--server-ip", default="192.168.10.115", help="Unreal server IP address.")
     parser.add_argument("--server-port", type=int, default=9999, help="Unreal server UDP port.")
     parser.add_argument("--team-name", default="FDSA", help="Client team name sent to the Unreal server.")
@@ -204,6 +221,29 @@ def parse_args():
 def build_action_provider(args):
     if args.mode == "bt":
         return BTActionProvider(dll_name=args.bt_dll)
+
+    if args.mode == "w1":
+        from dogfight.ai.w1_controller import W1ControllerActionProvider, W1Config
+        return W1ControllerActionProvider(W1Config())
+
+    if args.mode == "pulse":
+        from dogfight.ai.pulse_test_provider import (
+            PITCH_PULSE_SEQUENCE,
+            PITCH_TRIM_SWEEP_SEQUENCE,
+            ROLL_INERTIA_SEQUENCE,
+            PulseTestActionProvider,
+            PulseTestConfig,
+        )
+        sequence_map = {
+            "pitch": PITCH_PULSE_SEQUENCE,
+            "pitch_trim": PITCH_TRIM_SWEEP_SEQUENCE,
+            "roll_inertia": ROLL_INERTIA_SEQUENCE,
+        }
+        sequence = sequence_map.get(args.pulse_sequence)
+        cfg = PulseTestConfig(loop=args.pulse_loop) if sequence is None else PulseTestConfig(
+            sequence=sequence, loop=args.pulse_loop
+        )
+        return PulseTestActionProvider(cfg)
 
     if args.bundle_dir is None:
         raise ValueError("--bundle-dir is required for rl and hybrid modes")

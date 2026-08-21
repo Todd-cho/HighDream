@@ -268,7 +268,21 @@ class ProviderCommandPolicy:
                 # ActionResult.info; blank for a raw learned policy.
                 "tactical_state", "closure_rate_mps",
                 "los_az_deg", "los_el_deg", "target_bank_deg", "bank_error_deg",
+                # Added 2026-08-21 (pulse-test follow-up, user request):
+                # measured directly instead of post-hoc finite-differencing
+                # a plain angle log, since angles wrap and naive diffs are
+                # wrong across a +-180/0-360 boundary. flight_path_angle_deg
+                # is asin(vertical_speed/own_speed) -- the velocity-vector
+                # angle, not Euler pitch, per the user's diagnosis that
+                # Euler pitch alone doesn't reflect actual climb/dive.
+                "roll_rate_degps", "pitch_rate_degps", "yaw_rate_degps",
+                "vertical_speed_mps", "flight_path_angle_deg",
             ])
+        self._prev_log_time: float | None = None
+        self._prev_log_roll: float | None = None
+        self._prev_log_pitch: float | None = None
+        self._prev_log_yaw: float | None = None
+        self._prev_log_alt: float | None = None
 
     def reset(self, context: RemoteClientContext) -> None:
         self.action_provider.reset(None)
@@ -277,6 +291,11 @@ class ProviderCommandPolicy:
         self._last_policy_count = None
         self._last_policy_frame_index = None
         self._prev_applied_action = None
+        self._prev_log_time = None
+        self._prev_log_roll = None
+        self._prev_log_pitch = None
+        self._prev_log_yaw = None
+        self._prev_log_alt = None
 
     def _apply_action_rate_limit(self, action: np.ndarray) -> np.ndarray:
         """Mirrors single_agent_env.py's _apply_action_rate_limit exactly --
@@ -402,6 +421,32 @@ class ProviderCommandPolicy:
             distance = self.geometry._get_distance(ownship_state, target_state)
             ata = self.geometry._get_antenna_train_angle(ownship_state, target_state, False)
             aa = self.geometry._get_aspect_angle(ownship_state, target_state, False)
+
+            # Wrap-safe angular rates (roll/yaw can cross +-180; a naive
+            # diff is wrong across that boundary) plus vertical
+            # speed/flight-path angle, computed here (not post-hoc) so a
+            # short pulse test doesn't need re-deriving these from raw
+            # angle columns every time -- see the header comment above.
+            now_t = float(context.frame_index) / 60.0
+            roll_rate = pitch_rate = yaw_rate = vertical_speed = 0.0
+            if self._prev_log_time is not None:
+                dt = now_t - self._prev_log_time
+                if dt > 1e-3:
+                    def _wrap180(a: float) -> float:
+                        return (a + 180.0) % 360.0 - 180.0
+                    roll_rate = _wrap180(own_plane.rotation.roll - self._prev_log_roll) / dt
+                    pitch_rate = _wrap180(own_plane.rotation.pitch - self._prev_log_pitch) / dt
+                    yaw_rate = _wrap180(own_plane.rotation.yaw - self._prev_log_yaw) / dt
+                    vertical_speed = (own_plane.position.z - self._prev_log_alt) / dt
+            flight_path_angle = float(np.degrees(np.arcsin(
+                np.clip(vertical_speed / own_speed, -1.0, 1.0) if own_speed > 1e-3 else 0.0
+            )))
+            self._prev_log_time = now_t
+            self._prev_log_roll = own_plane.rotation.roll
+            self._prev_log_pitch = own_plane.rotation.pitch
+            self._prev_log_yaw = own_plane.rotation.yaw
+            self._prev_log_alt = own_plane.position.z
+
             self._log_csv_writer.writerow([
                 context.frame_index,
                 own_plane.position.x, own_plane.position.y, own_plane.position.z,
@@ -417,6 +462,7 @@ class ProviderCommandPolicy:
                 action_result.info.get("los_el", ""),
                 action_result.info.get("target_bank", ""),
                 action_result.info.get("bank_error", ""),
+                roll_rate, pitch_rate, yaw_rate, vertical_speed, flight_path_angle,
             ])
             self._log_csv_file.flush()
 
