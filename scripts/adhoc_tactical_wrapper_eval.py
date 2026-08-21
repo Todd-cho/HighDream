@@ -52,6 +52,38 @@ def parse_args() -> argparse.Namespace:
         "--pursuit-controller", action="store_true",
         help="Use PursuitControllerActionProvider instead of TacticalWrapperActionProvider.",
     )
+    parser.add_argument(
+        "--pc-disable-alignment-gate", action="store_true",
+        help="P1 ablation: PursuitControllerConfig.disable_alignment_gate=True.",
+    )
+    parser.add_argument(
+        "--pc-disable-pitch-envelope", action="store_true",
+        help="P2 ablation: PursuitControllerConfig.disable_pitch_envelope=True.",
+    )
+    parser.add_argument(
+        "--pc-flip-bank-sign", action="store_true",
+        help="P3 ablation: PursuitControllerConfig.flip_bank_sign=True.",
+    )
+    parser.add_argument(
+        "--pc-world-frame-pitch-gate", action="store_true",
+        help="P4 ablation: PursuitControllerConfig.world_frame_pitch_gate=True.",
+    )
+    parser.add_argument(
+        "--pc-turn-pull-decomposition", action="store_true",
+        help="P5 ablation: PursuitControllerConfig.turn_pull_decomposition=True.",
+    )
+    parser.add_argument(
+        "--pc-vertical-damping-gain", type=float, default=None,
+        help="P5b: override PursuitControllerConfig.vertical_damping_gain (default 0.004).",
+    )
+    parser.add_argument(
+        "--pc-turn-pull-priority-gate", action="store_true",
+        help="P6 ablation: PursuitControllerConfig.turn_pull_priority_gate=True.",
+    )
+    parser.add_argument(
+        "--pc-turn-sign-flip-deg", type=float, default=None,
+        help="P7: override PursuitControllerConfig.turn_sign_flip_deg (default 20.0).",
+    )
     return parser.parse_args()
 
 
@@ -60,7 +92,34 @@ def main() -> int:
     if args.pursuit_controller and args.plain:
         raise ValueError("--pursuit-controller and --plain are mutually exclusive")
     tag = args.tag
-    suffix = "plain" if args.plain else ("pursuit_controller" if args.pursuit_controller else "tactical_wrapper")
+    if args.pursuit_controller:
+        # Short codes only -- Windows MAX_PATH=260 leaves ~9 chars of budget
+        # after the existing tag/suffix chain (measured 2026-08-21: the
+        # unadorned "pursuit_controller" suffix alone already sits at 250
+        # chars for this tag, and a longer ablation label like
+        # "_p1noalign" silently truncates the write -- single_agent_env.py's
+        # _append_episode_summary swallows the resulting OSError, so all 10
+        # episodes ran and printed normally but wrote zero rows).
+        ablation_bits = []
+        if args.pc_disable_alignment_gate:
+            ablation_bits.append("p1")
+        if args.pc_disable_pitch_envelope:
+            ablation_bits.append("p2")
+        if args.pc_flip_bank_sign:
+            ablation_bits.append("p3")
+        if args.pc_world_frame_pitch_gate:
+            ablation_bits.append("p4")
+        if args.pc_turn_pull_decomposition:
+            ablation_bits.append("p5")
+        if args.pc_vertical_damping_gain is not None:
+            ablation_bits.append("p5b")
+        if args.pc_turn_pull_priority_gate:
+            ablation_bits.append("p6")
+        if args.pc_turn_sign_flip_deg is not None:
+            ablation_bits.append("p7")
+        suffix = "pc" + ("_" + "_".join(ablation_bits) if ablation_bits else "_p0")
+    else:
+        suffix = "plain" if args.plain else "tactical_wrapper"
     out_dir = FROZEN_EVAL_ROOT / f"{tag}__scripted_pursuit__{suffix}"
     reward_module, env_config = load_training_env_config(tag)
     reward_fn, _ = load_reward_hook(reward_module)
@@ -84,7 +143,20 @@ def main() -> int:
     if args.plain:
         ownship_provider = rl_provider
     elif args.pursuit_controller:
-        ownship_provider = PursuitControllerActionProvider(rl_provider, PursuitControllerConfig())
+        pc_kwargs = dict(
+            disable_alignment_gate=args.pc_disable_alignment_gate,
+            disable_pitch_envelope=args.pc_disable_pitch_envelope,
+            flip_bank_sign=args.pc_flip_bank_sign,
+            world_frame_pitch_gate=args.pc_world_frame_pitch_gate,
+            turn_pull_decomposition=args.pc_turn_pull_decomposition,
+        )
+        if args.pc_vertical_damping_gain is not None:
+            pc_kwargs["vertical_damping_gain"] = args.pc_vertical_damping_gain
+        pc_kwargs["turn_pull_priority_gate"] = args.pc_turn_pull_priority_gate
+        if args.pc_turn_sign_flip_deg is not None:
+            pc_kwargs["turn_sign_flip_deg"] = args.pc_turn_sign_flip_deg
+        pc_config = PursuitControllerConfig(**pc_kwargs)
+        ownship_provider = PursuitControllerActionProvider(rl_provider, pc_config)
     else:
         ownship_provider = TacticalWrapperActionProvider(rl_provider, TacticalWrapperConfig())
     target_provider = ScriptedPursuitActionProvider(**pursuit_cfg)

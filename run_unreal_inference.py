@@ -93,6 +93,34 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--pc-world-frame-pitch-gate",
+        action="store_true",
+        help=(
+            "PursuitControllerConfig.world_frame_pitch_gate=True (P4, "
+            "2026-08-21): blocks further nose-up pull unless the target is "
+            "actually above ownship in world-frame altitude, regardless of "
+            "bank -- fixes a sustained shallow climb that bled distance for "
+            "the whole engagement in JSBSim ablation testing. Only applies "
+            "with --pursuit-controller. Superseded by --pc-turn-pull-decomposition "
+            "(P5) -- kept for A/B reference."
+        ),
+    )
+    parser.add_argument(
+        "--pc-turn-pull-decomposition",
+        action="store_true",
+        help=(
+            "PursuitControllerConfig.turn_pull_decomposition=True (P5, "
+            "2026-08-21, user diagnosis of P4's live failure at 91deg): "
+            "replaces P4's hard climb-pull clamp with an additive "
+            "coordinated-turn pull (scales with bank, present regardless of "
+            "target position) + a small world-frame altitude correction + "
+            "vertical-rate damping. P4's hard clamp zeroed the "
+            "coordinated-turn back-pressure a banked turn needs just to "
+            "hold altitude and actually turn, not just the excess climb "
+            "pull. Only applies with --pursuit-controller."
+        ),
+    )
+    parser.add_argument(
         "--action-rate-limit",
         type=float,
         default=None,
@@ -195,7 +223,13 @@ def build_action_provider(args):
                 PursuitControllerActionProvider,
                 PursuitControllerConfig,
             )
-            return PursuitControllerActionProvider(rl_provider, PursuitControllerConfig())
+            return PursuitControllerActionProvider(
+                rl_provider,
+                PursuitControllerConfig(
+                    world_frame_pitch_gate=args.pc_world_frame_pitch_gate,
+                    turn_pull_decomposition=args.pc_turn_pull_decomposition,
+                ),
+            )
         if args.tactical_wrapper:
             from dogfight.ai.tactical_wrapper import TacticalWrapperActionProvider, TacticalWrapperConfig
             return TacticalWrapperActionProvider(rl_provider, TacticalWrapperConfig())
