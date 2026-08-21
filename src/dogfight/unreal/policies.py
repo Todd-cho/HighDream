@@ -264,9 +264,10 @@ class ProviderCommandPolicy:
                 "own_speed_mps", "enemy_n", "enemy_e", "enemy_alt_m", "enemy_speed_mps",
                 "distance_m", "ata_deg", "aa_deg",
                 "roll_cmd", "pitch_cmd", "yaw_cmd", "throttle_cmd",
-                # Populated only when action_provider is a TacticalWrapperActionProvider
-                # (its ActionResult.info dict) -- blank otherwise.
+                # Populated by supervisory/pursuit ActionProviders through
+                # ActionResult.info; blank for a raw learned policy.
                 "tactical_state", "closure_rate_mps",
+                "los_az_deg", "los_el_deg", "target_bank_deg", "bank_error_deg",
             ])
 
     def reset(self, context: RemoteClientContext) -> None:
@@ -412,6 +413,10 @@ class ProviderCommandPolicy:
                 float(action[0]), float(action[1]), float(action[2]), float(action[3]),
                 action_result.info.get("state", ""),
                 action_result.info.get("closure_rate", ""),
+                action_result.info.get("los_az", ""),
+                action_result.info.get("los_el", ""),
+                action_result.info.get("target_bank", ""),
+                action_result.info.get("bank_error", ""),
             ])
             self._log_csv_file.flush()
 

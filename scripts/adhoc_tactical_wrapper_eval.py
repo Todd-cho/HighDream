@@ -34,6 +34,7 @@ from dogfight.ai.rl_action_provider import RLActionProvider
 from dogfight.ai.scripted_pursuit_provider import ScriptedPursuitActionProvider
 from dogfight.ai.student_hooks import load_reward_hook
 from dogfight.ai.tactical_wrapper import TacticalWrapperActionProvider, TacticalWrapperConfig
+from dogfight.ai.pursuit_controller import PursuitControllerActionProvider, PursuitControllerConfig
 from scripts.run_stage6g_frozen_eval import load_training_env_config
 
 MODEL_ROOT = ROOT / "artifacts" / "models" / "highdream"
@@ -47,13 +48,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-engage-time", type=float, default=200.0)
     parser.add_argument("--seed", type=int, default=269000)
     parser.add_argument("--plain", action="store_true", help="Skip the tactical wrapper (A/B baseline).")
+    parser.add_argument(
+        "--pursuit-controller", action="store_true",
+        help="Use PursuitControllerActionProvider instead of TacticalWrapperActionProvider.",
+    )
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.pursuit_controller and args.plain:
+        raise ValueError("--pursuit-controller and --plain are mutually exclusive")
     tag = args.tag
-    suffix = "plain" if args.plain else "tactical_wrapper"
+    suffix = "plain" if args.plain else ("pursuit_controller" if args.pursuit_controller else "tactical_wrapper")
     out_dir = FROZEN_EVAL_ROOT / f"{tag}__scripted_pursuit__{suffix}"
     reward_module, env_config = load_training_env_config(tag)
     reward_fn, _ = load_reward_hook(reward_module)
@@ -74,9 +81,12 @@ def main() -> int:
         policy_id="default_policy",
         explore=False,
     )
-    ownship_provider = rl_provider if args.plain else TacticalWrapperActionProvider(
-        rl_provider, TacticalWrapperConfig()
-    )
+    if args.plain:
+        ownship_provider = rl_provider
+    elif args.pursuit_controller:
+        ownship_provider = PursuitControllerActionProvider(rl_provider, PursuitControllerConfig())
+    else:
+        ownship_provider = TacticalWrapperActionProvider(rl_provider, TacticalWrapperConfig())
     target_provider = ScriptedPursuitActionProvider(**pursuit_cfg)
     env = DogFightWrapper(
         env_config=env_config,
@@ -92,7 +102,7 @@ def main() -> int:
             while not (terminated or truncated):
                 _, _, terminated, truncated, _ = env.step(np.zeros(4, dtype=np.float32))
             print(f"[tactical-wrapper-eval] episode {episode_number}/{args.episodes}")
-            if isinstance(ownship_provider, TacticalWrapperActionProvider):
+            if isinstance(ownship_provider, (TacticalWrapperActionProvider, PursuitControllerActionProvider)):
                 for s in ownship_provider.state_log:
                     state_counts[s] = state_counts.get(s, 0) + 1
     finally:

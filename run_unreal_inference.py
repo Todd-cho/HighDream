@@ -85,6 +85,14 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--pursuit-controller",
+        action="store_true",
+        help=(
+            "Use the stable bank-to-turn pursuit controller for RL mode. "
+            "Mutually exclusive with --tactical-wrapper; intended for live A/B testing."
+        ),
+    )
+    parser.add_argument(
         "--action-rate-limit",
         type=float,
         default=None,
@@ -180,6 +188,14 @@ def build_action_provider(args):
     )
 
     if args.mode == "rl":
+        if args.tactical_wrapper and args.pursuit_controller:
+            raise ValueError("--tactical-wrapper and --pursuit-controller are mutually exclusive")
+        if args.pursuit_controller:
+            from dogfight.ai.pursuit_controller import (
+                PursuitControllerActionProvider,
+                PursuitControllerConfig,
+            )
+            return PursuitControllerActionProvider(rl_provider, PursuitControllerConfig())
         if args.tactical_wrapper:
             from dogfight.ai.tactical_wrapper import TacticalWrapperActionProvider, TacticalWrapperConfig
             return TacticalWrapperActionProvider(rl_provider, TacticalWrapperConfig())

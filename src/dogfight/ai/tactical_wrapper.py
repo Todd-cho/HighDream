@@ -300,20 +300,82 @@ class TacticalWrapperConfig:
     # on the instantaneous LOS azimuth has no memory, so it can reverse
     # direction every tick as az swings through fast-changing values at
     # close range, wasting time rebuilding bank angle each reversal instead
-    # of completing one committed turn. None of tonight's gain/threshold
-    # tuning touched this -- it's a different, structural problem. Outside
-    # fine-track range (|az|>=roll_deadband_deg), roll now commits hard to
-    # ONE direction (+-roll_commit_magnitude) and holds it for at least
-    # roll_commit_hold_s, only flipping once az has clearly reversed past
-    # deadband+hysteresis for that long -- approximates "bank to a turn
-    # angle and hold" instead of continuously chasing the instantaneous
-    # bearing. Inside fine-track range the existing proportional+PN law
-    # still applies unchanged (precision holding needs the opposite
-    # behavior -- small continuous corrections, not commitment).
+    # of completing one committed turn. Outside fine-track range
+    # (|az|>=roll_deadband_deg), the SIGN of the desired turn direction
+    # commits to ONE side, only flipping once az has clearly reversed past
+    # deadband+hysteresis -- this part is unchanged and still prevents
+    # direction chattering. Inside fine-track range the existing
+    # proportional+PN law still applies unchanged (precision holding needs
+    # small continuous corrections, not commitment).
+    # roll_commit_hold_s REMOVED (2026-08-21 v14, user diagnosis from
+    # run19/20): the old gate required BOTH reversed_clearly AND >=1.0s
+    # elapsed before allowing a flip -- reversed_clearly alone (az past
+    # deadband+hysteresis=13deg) is already a strong noise filter, so the
+    # extra time-hold did nothing for genuine noise but actively forced the
+    # WRONG committed direction to keep being flown whenever az reversed
+    # decisively in under 1s (observed run19 frame2161: az=+170.2deg --
+    # clearly calling for desired_sign=+1 -- but roll_cmd was still -0.6
+    # because the previous commit hadn't held 1s yet). That 1s of banking
+    # the wrong way is exactly what produced the near-inverted roll
+    # excursions (own_roll_deg hit 178deg, then wrapped through +-180 to
+    # recover) seen in both run19 and run20. reversed_clearly alone is kept
+    # as the sole gate.
     roll_deadband_deg: float = 3.0
     roll_commit_hysteresis_deg: float = 10.0
-    roll_commit_hold_s: float = 1.0
-    roll_commit_magnitude: float = 1.0
+    # Bank-angle hold (REPLACED 2026-08-21 v13, user diagnosis from run18:
+    # the original design forced roll_cmd to +-roll_commit_magnitude=1.0 --
+    # i.e. FULL roll input, not just a committed turn DIRECTION -- for the
+    # entire hold window. That is "keep feeding in roll input", not "hold a
+    # bank angle": once the aircraft actually reached a reasonable bank it
+    # kept rolling straight through it (run18 live: median bank 83.6deg, 43%
+    # of frames >90deg, well past a normal turn bank), bleeding lift/altitude
+    # (4572m->726m over the run) and overshooting the LOS on every commit
+    # instead of settling into a turn, exactly why ATA never converged
+    # (v11->v12 was WORSE on ata/altitude despite direction-chatter being
+    # fixed). Now only the direction (sign) is committed via the
+    # deadband/hysteresis gate above; the target is a BANK ANGLE
+    # (target_bank_deg on the committed side) and roll_cmd is a
+    # proportional correction toward it (bank_error_deg = target - current,
+    # wrap-safe). This self-limits: roll_cmd is large while far from the
+    # target bank and shrinks toward 0 as the aircraft actually banks up to
+    # it, instead of always being pinned at max until a timer expires.
+    # target_bank_deg is now SCALED BY |az| (2026-08-21 v14, user diagnosis
+    # from run19/20: a fixed 70deg target held the SAME hard bank all the
+    # way through convergence -- both live runs show ATA genuinely
+    # converging from ~127deg down to ~55deg over a sustained turn, then
+    # blowing back open past 150deg because the wings never came up as the
+    # LOS closed, overshooting straight through the solution). Now the
+    # target bank ramps from target_bank_min_deg (right at the fine-track
+    # boundary, easing toward wings-level for the precision handoff) up to
+    # target_bank_max_deg (once |az| is at/above target_bank_full_az_deg) --
+    # aggressive early in the turn, progressively relaxed as az closes so
+    # the nose settles onto the target instead of sweeping through it.
+    target_bank_max_deg: float = 70.0
+    target_bank_min_deg: float = 20.0
+    target_bank_full_az_deg: float = 60.0
+    bank_hold_gain: float = 1.0
+    bank_hold_norm_deg: float = 30.0
+    # Excessive-climb pitch ceiling (added 2026-08-21 v14, user diagnosis
+    # from run19/20: pitch_cmd was negative -- nose-up/pull -- 85% of the
+    # time (mean -0.59) for the ENTIRE flight while the target's actual
+    # world-frame altitude stayed BELOW ownship the whole time (mean
+    # rel_alt -337m, worst -964m) -- own_pitch_deg (world nose angle)
+    # climbed monotonically from ~6deg to ~73deg mean by the run's second
+    # half and own_speed bled from ~208m/s down to ~67m/s, i.e. an unbounded
+    # zoom climb with nothing in the pitch law that says "this isn't
+    # converging, stop pulling". The existing altitude_safe_floor_m ceiling
+    # only caps NOSE-DOWN (positive) pitch_cmd near the ground -- there was
+    # no symmetric cap on sustained NOSE-UP (negative) pitch_cmd regardless
+    # of how steep the aircraft's own pitch attitude already is. This adds
+    # one: once own_pitch_deg (world attitude, not LOS elevation) exceeds
+    # climb_ramp_start_deg, the most-negative pitch_cmd allowed is ramped
+    # from -1.0 down toward max_climb_pitch_floor as pitch approaches
+    # max_climb_pitch_deg -- caps how long a pure pull can keep steepening
+    # the climb without forcing a real recovery, while never restricting
+    # nose-down/descending commands.
+    climb_ramp_start_deg: float = 30.0
+    max_climb_pitch_deg: float = 60.0
+    max_climb_pitch_floor: float = 0.0
     # Final EMA smoothing on the blended roll_cmd (2026-08-21) -- independent
     # of the commitment logic above (which prevents chattering DIRECTION),
     # this smooths chattering MAGNITUDE/high-frequency noise from the SAC
@@ -342,7 +404,6 @@ class TacticalWrapperActionProvider(ActionProvider):
         self._high_cmd_start_ata: float | None = None
         self._disengage_until: float | None = None
         self._roll_commit_sign: int = 0
-        self._roll_commit_time: float | None = None
         self._smoothed_roll_cmd: float = 0.0
         self.state_log: list[str] = []
 
@@ -360,7 +421,6 @@ class TacticalWrapperActionProvider(ActionProvider):
         self._high_cmd_start_ata = None
         self._disengage_until = None
         self._roll_commit_sign = 0
-        self._roll_commit_time = None
         self._smoothed_roll_cmd = 0.0
         self.state_log = []
 
@@ -435,6 +495,9 @@ class TacticalWrapperActionProvider(ActionProvider):
         altitude = float(ownship_state[StateIndex.ALT])
         ceiling = self._pitch_ceiling(altitude, self._state)
         blended[1] = min(blended[1], ceiling)
+        own_pitch_deg = float(ownship_state[StateIndex.PITCH])
+        climb_floor = self._climb_floor(own_pitch_deg)
+        blended[1] = max(blended[1], climb_floor)
 
         # Roll stabilization once already close to a solution (2026-08-21,
         # user request) -- caps the roll swing so a correction can't kick a
@@ -501,6 +564,23 @@ class TacticalWrapperActionProvider(ActionProvider):
         span = max(1.0, safe_floor - critical_floor)
         frac = (altitude - critical_floor) / span
         return cfg.min_climb_pitch_ceiling + frac * (1.0 - cfg.min_climb_pitch_ceiling)
+
+    def _climb_floor(self, own_pitch_deg: float) -> float:
+        """Min allowed (nose-up, negative) pitch_cmd given the aircraft's
+        OWN world-frame pitch attitude -- see TacticalWrapperConfig's
+        climb_ramp_start_deg comment. Symmetric to _pitch_ceiling but keyed
+        on own attitude, not altitude: caps sustained pull once already
+        pitched steeply up, regardless of how high above the ground that
+        is."""
+        cfg = self.cfg
+        pitch = abs(own_pitch_deg)
+        if pitch <= cfg.climb_ramp_start_deg:
+            return -1.0
+        if pitch >= cfg.max_climb_pitch_deg:
+            return cfg.max_climb_pitch_floor
+        span = max(1.0, cfg.max_climb_pitch_deg - cfg.climb_ramp_start_deg)
+        frac = (pitch - cfg.climb_ramp_start_deg) / span
+        return -1.0 + frac * (cfg.max_climb_pitch_floor - (-1.0))
 
     def _update_stuck_detector(self, sim_time: float, ata: float, blended: np.ndarray) -> bool:
         """Returns True if currently in a disengage window (caller should
@@ -634,16 +714,18 @@ class TacticalWrapperActionProvider(ActionProvider):
             -1.0, 1.0,
         ))
 
-        # Roll commitment (2026-08-21, see TacticalWrapperConfig's
-        # roll_deadband_deg comment) -- outside fine-track range, commit
-        # hard to one direction and hold it instead of continuously
-        # rechasing the raw proportional-law output. Inside fine-track
-        # range the precise law above applies directly (precision holding
-        # needs small continuous corrections, not commitment).
+        # Roll commitment / bank-angle hold (2026-08-21 v13/v14, see
+        # TacticalWrapperConfig's target_bank_max_deg comment) -- outside
+        # fine-track range, commit hard to one TURN DIRECTION (deadband +
+        # hysteresis gate, no time-hold -- see roll_commit_hysteresis_deg
+        # comment) but then hold a target BANK ANGLE (scaled by |az|) on
+        # that side via proportional control, instead of forcing full roll
+        # input for a fixed window. Inside fine-track range the precise law
+        # above applies directly (precision holding needs small continuous
+        # corrections, not commitment).
         if abs(az) < cfg.fine_track_threshold_deg:
             roll_cmd = roll_cmd_raw
             self._roll_commit_sign = 1 if az >= 0 else -1
-            self._roll_commit_time = sim_time
         else:
             if az > cfg.roll_deadband_deg:
                 desired_sign = 1
@@ -652,17 +734,22 @@ class TacticalWrapperActionProvider(ActionProvider):
             else:
                 desired_sign = self._roll_commit_sign or (1 if roll_cmd_raw >= 0 else -1)
             if self._roll_commit_sign != 0 and desired_sign != self._roll_commit_sign:
-                held_long_enough = (
-                    self._roll_commit_time is not None
-                    and (sim_time - self._roll_commit_time) >= cfg.roll_commit_hold_s
-                )
                 reversed_clearly = abs(az) > cfg.roll_deadband_deg + cfg.roll_commit_hysteresis_deg
-                if not (held_long_enough and reversed_clearly):
+                if not reversed_clearly:
                     desired_sign = self._roll_commit_sign
-            if desired_sign != self._roll_commit_sign:
-                self._roll_commit_sign = desired_sign
-                self._roll_commit_time = sim_time
-            roll_cmd = cfg.roll_commit_magnitude * self._roll_commit_sign
+            self._roll_commit_sign = desired_sign
+            az_frac = float(np.clip(
+                (abs(az) - cfg.roll_deadband_deg)
+                / max(1.0, cfg.target_bank_full_az_deg - cfg.roll_deadband_deg),
+                0.0, 1.0,
+            ))
+            target_bank_mag = cfg.target_bank_min_deg + az_frac * (cfg.target_bank_max_deg - cfg.target_bank_min_deg)
+            target_bank_deg = target_bank_mag * self._roll_commit_sign
+            current_bank_deg = float(ownship_state[StateIndex.ROLL])
+            bank_error_deg = ((target_bank_deg - current_bank_deg + 180.0) % 360.0) - 180.0
+            roll_cmd = float(np.clip(
+                cfg.bank_hold_gain * bank_error_deg / cfg.bank_hold_norm_deg, -1.0, 1.0,
+            ))
 
         # Final EMA smoothing (separate from the commitment logic above,
         # which prevents DIRECTION chattering -- this smooths magnitude/

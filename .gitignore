@@ -131,6 +131,7 @@ ray_results/
 !/src/dogfight/ai/rllib_utils.py
 !/src/dogfight/ai/scripted_pursuit_provider.py
 !/src/dogfight/ai/tactical_wrapper.py
+!/src/dogfight/ai/pursuit_controller.py
 !/src/dogfight/envs/
 /src/dogfight/envs/**
 !/src/dogfight/envs/single_agent_env.py
