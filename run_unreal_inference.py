@@ -42,6 +42,18 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--w1-bank-step-test",
+        action="store_true",
+        help=(
+            "--mode w1 only: isolate the roll rate-cascade from pursuit "
+            "geometry entirely -- target_bank follows a scripted "
+            "+30/0/-30/0deg step sequence (5s each), pitch just holds "
+            "flat (gamma_error=0), no target/enemy involved. Validate this "
+            "settles at each target without overshoot BEFORE trusting W1 "
+            "against a live 91deg pursuit -- see Desktop/전술.txt."
+        ),
+    )
+    parser.add_argument(
         "--pulse-loop",
         action="store_true",
         help="--mode pulse only: repeat the sequence forever instead of holding the last step.",
@@ -224,7 +236,7 @@ def build_action_provider(args):
 
     if args.mode == "w1":
         from dogfight.ai.w1_controller import W1ControllerActionProvider, W1Config
-        return W1ControllerActionProvider(W1Config())
+        return W1ControllerActionProvider(W1Config(bank_step_test=args.w1_bank_step_test))
 
     if args.mode == "pulse":
         from dogfight.ai.pulse_test_provider import (

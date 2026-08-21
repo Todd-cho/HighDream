@@ -1,43 +1,49 @@
-"""W1: from-scratch minimal approach controller sized from MEASURED live
-plant response (2026-08-21, step 4 of the post-pursuit_controller pivot).
+"""W1: from-scratch minimal approach controller, gains measured from live
+pulse tests (2026-08-21, step 4 of the post-pursuit_controller pivot).
 
-Every gain in tactical_wrapper.py (W1-W14) and pursuit_controller.py (P0-P7)
-was tuned against JSBSim behavior or against symptoms re-read from live logs
-after the fact -- never against a direct, controlled measurement of the real
-live plant's actual response. run0044/run0045 (open-loop fixed-command pulse
-tests, src/dogfight/ai/pulse_test_provider.py) measured it directly, and a
-second pass over those same two logs (user, 2026-08-21) found three things
-the first pass missed:
+Second revision, per a more careful re-analysis of the same two pulse logs
+(run0046 pitch-trim sweep, run0047 roll-inertia step/brake -- see
+Desktop/전술.txt) that corrected the first pass on two points:
 
-  ROLL:  ~160deg/s per unit roll_cmd -- roughly 7-10x more responsive than
-         pitch. roll_cmd=0.0 does NOT hold wings-level: it settles at a
-         stable +45.7deg bank (23s window, stdev 1.85deg) -- a genuine trim
-         equilibrium (engine torque/gyroscopic, reproduced independently in
-         both logs), which a P-only law can never fully zero (it's an
-         attractor, not a one-off offset -- needs an I term). The plant also
-         has strong inertia: an ended pulse keeps rolling for a while, so a
-         command-magnitude delta-limiter alone (bounding how fast roll_cmd
-         itself changes) is not the same as real rate feedback -- a D term
-         on the MEASURED roll rate is needed too, or corrections overshoot.
-  PITCH: ~+24deg/s per unit nose-down (pitch_cmd>0) vs ~+14deg/s per unit
-         nose-up (pitch_cmd<0) -- asymmetric. Also strong inertia (ending a
-         dive pulse at t=10 left pitch still recovering from -69deg to
-         -32deg five seconds later on its own). And: pitch_cmd=0.0 with
-         throttle=0.7 is NOT level flight either -- both pulse-test logs
-         show pitch drifting 0deg->-6.9deg and speed climbing 200->225m/s
-         over the first quiet 5s before any pulse fired. This is smaller
-         than roll's bias but real, and needs an explicit nose-up trim
-         term, not just a P term driven off LOS elevation.
+  1. PITCH TRIM is about ATTITUDE, not altitude. The first pass found the
+     pitch_cmd where vertical_speed crossed zero (-0.145) -- but that
+     conflates attitude trim with leftover descent momentum from earlier in
+     the same test. The correct read is the pitch_cmd where PITCH RATE (not
+     vertical speed) goes to ~0: -0.05. Altitude/vertical-speed control is a
+     SEPARATE outer loop (flight-path-angle tracking), not something a
+     single trim constant should try to absorb.
+  2. ROLL HAS NO FIXED BIAS. The first pass's "+45.7deg equilibrium" from
+     run0044 and the "-84..-90deg settling" from run0047 are NOT the same
+     underlying constant -- a fresh start (no prior roll command) shows
+     essentially zero drift (0deg -> -0.01deg over 2s). What looked like a
+     bias was really unbraked angular momentum coasting to a stop wherever
+     the plant's own damping happened to arrest it, biased toward whichever
+     direction was most recently commanded. A PID with an integral term
+     (the first revision's fix) is therefore solving the wrong problem --
+     what's actually needed is a proper RATE-COMMAND cascade: convert
+     attitude error to a desired rate, then command based on
+     (desired_rate - measured_rate), so the loop actively brakes to a stop
+     at the target instead of assuming a constant offset needs to be
+     integrated away.
 
-W1 reuses the same overall geometry (bank toward LOS azimuth via
-GeometryInfo, target-bank-from-az sizing, turn-direction commit with P7's
-tighter flip threshold) -- that part was never the diagnosed problem. What
-changes is the control LAW: roll is now PID (P+I+D) instead of P(+I), and
-pitch is trim+P+D using the measured asymmetric gain, with a
-flight-path-angle (velocity-vector angle, not Euler pitch) based altitude
-safety check -- Euler pitch alone doesn't reflect actual climb/dive at high
-bank (see tactical_wrapper.py's fixed _climb_floor() abs() bug, found from
-this same pulse data, for a concrete example of that mistake).
+Architecture (both axes): outer loop (attitude error -> desired rate) then
+inner loop (desired_rate - measured_rate -> surface command), with EMA
+smoothing on the measured rate (it's finite-differenced from live state and
+noisy). This is the standard fly-by-wire rate-command/attitude-hold
+structure, not a PID directly on attitude error.
+
+  ROLL:  desired_roll_rate = clip(bank_kp * bank_error, -rate_limit, +rate_limit)
+         roll_cmd = clip((desired_roll_rate - measured_roll_rate) / rate_gain, -cmd_limit, +cmd_limit)
+  PITCH: desired_gamma = atan2(target_alt - own_alt, horizontal_distance)  # world-frame, not body-frame el
+         gamma_error = desired_gamma - current_flight_path_angle
+         desired_pitch_rate = clip(gamma_kp * gamma_error, -rate_limit, +rate_limit)
+         pitch_cmd = attitude_trim - desired_pitch_rate / rate_gain
+
+Before pointing this at a live pursuit (91deg), validate the roll cascade in
+isolation with bank_step_test=True (a scripted +30->0->-30->0deg target-bank
+sequence, no target/geometry involved at all) -- confirm it actually settles
+at each target without overshoot before trusting it to fly toward a moving
+target.
 """
 from __future__ import annotations
 
@@ -54,62 +60,55 @@ def _wrap180(angle_deg: float) -> float:
     return (float(angle_deg) + 180.0) % 360.0 - 180.0
 
 
+# (duration_s, target_bank_deg) -- the pre-pursuit isolated validation
+# sequence from 전술.txt's closing recommendation.
+BANK_STEP_TEST_SEQUENCE: list[tuple[float, float]] = [
+    (5.0, 30.0),
+    (5.0, 0.0),
+    (5.0, -30.0),
+    (5.0, 0.0),
+]
+
+
 @dataclass
 class W1Config:
-    # Geometry / hand-off (unchanged from pursuit_controller.py -- never the
-    # diagnosed problem).
+    # Geometry / hand-off (unchanged from pursuit_controller.py).
     fine_ata_deg: float = 8.0
     track_ata_deg: float = 3.0
     weapon_range_m: float = 1219.2
 
-    # Bank-to-turn outer loop.
-    max_bank_deg: float = 60.0
-    min_turn_bank_deg: float = 20.0
+    # Bank-to-turn outer loop (az -> target bank), used only when
+    # bank_step_test is False.
+    max_bank_deg: float = 45.0  # 전술.txt's target_bank_limit_deg
+    min_turn_bank_deg: float = 15.0
     full_bank_az_deg: float = 60.0
     turn_sign_deadband_deg: float = 4.0
-    turn_sign_flip_deg: float = 10.0  # P7 finding: tighter flip = faster re-commit
+    turn_sign_flip_deg: float = 10.0  # P7 finding
 
-    # Roll PID, sized from the measured ~160deg/s-per-unit rate and the
-    # measured +45.7deg neutral-command equilibrium.
-    # - roll_kp: bank_error_norm_deg=60 means a 60deg error commands full
-    #   authority (~160deg/s) -- errors close fast at that rate, so this is
-    #   intentionally not aggressive.
-    # - roll_ki: integrates over several seconds specifically to cancel the
-    #   trim equilibrium (a pure P term cannot, since it's a stable
-    #   attractor, not a one-off offset); clamped so it can't run away.
-    # - roll_kd: NEW (2026-08-21 second pass) -- damps against the
-    #   plant's own measured roll rate (not just a delta-limit on our own
-    #   command), since the pulse logs showed strong post-input inertia
-    #   that a command-only rate limiter doesn't see or react to.
-    bank_error_norm_deg: float = 60.0
-    roll_kp: float = 1.0
-    roll_ki: float = 0.012
-    roll_integral_clamp: float = 0.6
-    roll_kd: float = 0.004  # per deg/s of measured roll rate
-    roll_delta_limit: float = 0.15
+    # Roll rate-cascade, values from 전술.txt's measured re-analysis:
+    # rate_gain=140deg/s per unit (re-estimated from the clean short
+    # roll_inertia test, both directions averaged), desired-rate capped at
+    # 30deg/s, output capped at +-0.25 for this first live validation.
+    bank_kp: float = 1.0  # deg of desired-rate per deg of bank error
+    roll_rate_gain_degps_per_unit: float = 140.0
+    roll_desired_rate_limit_degps: float = 30.0
+    roll_command_limit: float = 0.25
+    roll_rate_smoothing_alpha: float = 0.25
 
-    # Pitch: trim + asymmetric P (LOS-elevation-driven aim, only trusted
-    # near wings-level same as pursuit_controller.py) + D on measured pitch
-    # rate. level_pitch_trim=-0.145 is MEASURED (2026-08-21, run0046 pitch
-    # trim sweep, 3s legs at pitch_cmd in [0,-0.05,-0.10,-0.15,-0.20,0]):
-    # vertical_speed crossed zero between the -0.10 leg (-18.5m/s) and the
-    # -0.15 leg (+2.25m/s); linear interpolation puts the true zero-crossing
-    # at -0.145. Superseded the earlier -0.10 estimate (drift-rate/gain
-    # division, never actually measured). Caveat: own_speed climbed
-    # 207->269m/s across the sweep (not fully speed-stabilized before
-    # starting), so this is a good working value, not a final one.
-    level_pitch_trim: float = -0.145
-    pitch_norm_down_deg: float = 45.0
-    pitch_norm_up_deg: float = 26.25  # 45 * 14/24, so equal error -> equal RATE either direction
-    pitch_kd: float = 0.006  # per deg/s of measured pitch rate
-    pitch_delta_limit: float = 0.15
-    max_pitch_cmd: float = 0.7
+    # Pitch rate-cascade. attitude_trim=-0.05 measured where PITCH RATE (not
+    # vertical speed) crossed zero in the run0046 sweep -- altitude control
+    # is the separate gamma (flight-path-angle) loop below, not folded into
+    # this constant. rate_gain=25deg/s per unit from the near-normal-range
+    # legs of the same sweep.
+    gamma_kp: float = 1.0  # deg of desired pitch-rate per deg of gamma error
+    pitch_attitude_trim: float = -0.05
+    pitch_rate_gain_degps_per_unit: float = 25.0
+    pitch_desired_rate_limit_degps: float = 8.0
+    pitch_command_limit: float = 0.30
+    pitch_rate_smoothing_alpha: float = 0.25
 
-    # Altitude safety backstop -- keyed on flight_path_angle (velocity
-    # vector angle, asin(vertical_speed/speed)), not Euler own_pitch, so a
-    # banked turn that's still genuinely diving is caught correctly (the
-    # abs(own_pitch_deg) bug in tactical_wrapper.py's _climb_floor(),
-    # found from this same pulse data, is exactly the mistake this avoids).
+    # Altitude safety backstop (unchanged spirit -- flight_path_angle based,
+    # not Euler pitch, so a banked genuine dive is still caught correctly).
     dive_flight_path_floor_deg: float = -20.0
     altitude_floor_m: float = 900.0
     altitude_recovery_m: float = 1400.0
@@ -117,52 +116,56 @@ class W1Config:
     throttle_turn: float = 0.85
     throttle_track: float = 0.6
 
+    # Pre-pursuit isolated validation (전술.txt's closing recommendation):
+    # when True, target_bank comes from BANK_STEP_TEST_SEQUENCE instead of
+    # az, target/geometry is ignored entirely, and pitch just holds
+    # gamma_error=0 (flat, no target altitude reference) so only the roll
+    # cascade is under test.
+    bank_step_test: bool = False
+
 
 class W1ControllerActionProvider(ActionProvider):
-    """Minimal bank-to-turn approach controller with gains measured from a
-    live open-loop pulse test, not guessed from JSBSim. RL is NOT blended in
-    at all -- W1 is meant to stand alone for the approach-only live test
-    (step 5 of the pivot plan); an inner RL/track policy is a later step."""
+    """Rate-command/attitude-hold controller with gains measured from a live
+    open-loop pulse test. RL is NOT blended in -- W1 stands alone for the
+    approach-only live test; an inner RL/track policy is a later step."""
 
     def __init__(self, config: W1Config | None = None):
         self.cfg = config or W1Config()
         self.geometry = GeometryInfo()
         self._turn_sign = 0
-        self._roll_integral = 0.0
-        self._roll_cmd = 0.0
-        self._pitch_cmd = 0.0
+        self._roll_rate_smoothed = 0.0
+        self._pitch_rate_smoothed = 0.0
         self._prev_time: float | None = None
         self._prev_bank: float | None = None
         self._prev_pitch: float | None = None
         self._prev_alt: float | None = None
+        self._start_time: float | None = None
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
 
     def reset(self, context: ActionContext | None = None) -> None:
         self._turn_sign = 0
-        self._roll_integral = 0.0
-        self._roll_cmd = 0.0
-        self._pitch_cmd = 0.0
+        self._roll_rate_smoothed = 0.0
+        self._pitch_rate_smoothed = 0.0
         self._prev_time = None
         self._prev_bank = None
         self._prev_pitch = None
         self._prev_alt = None
+        self._start_time = None
         self.state_log = []
         self.info_log = []
 
     def compute_action(self, context: ActionContext) -> ActionResult:
         cfg = self.cfg
         own = context.ownship_state
-        target = context.target_state
-        if own is None or target is None:
+        if own is None:
             action = np.array([0.0, 0.0, 0.0, cfg.throttle_turn], dtype=np.float32)
             return ActionResult(action, "w1_passthrough", 1.0)
+        target = context.target_state
 
         now = float(own[StateIndex.SIM_TIME])
-        az, el = self.geometry._get_los_angle(own, target)
-        az, el = float(az), float(el)
-        ata = abs(float(self.geometry._get_antenna_train_angle(own, target, False)))
-        distance = float(self.geometry._get_distance(own, target))
+        if self._start_time is None:
+            self._start_time = now
         current_bank = _wrap180(float(own[StateIndex.ROLL]))
         current_pitch = float(own[StateIndex.PITCH])
         altitude = float(own[StateIndex.ALT])
@@ -173,66 +176,98 @@ class W1ControllerActionProvider(ActionProvider):
             candidate = now - self._prev_time
             if candidate > 1e-3:
                 dt = candidate
-        roll_rate = _wrap180(current_bank - self._prev_bank) / dt if dt and self._prev_bank is not None else 0.0
-        pitch_rate = (current_pitch - self._prev_pitch) / dt if dt and self._prev_pitch is not None else 0.0
+        raw_roll_rate = _wrap180(current_bank - self._prev_bank) / dt if dt and self._prev_bank is not None else 0.0
+        raw_pitch_rate = (current_pitch - self._prev_pitch) / dt if dt and self._prev_pitch is not None else 0.0
         vertical_speed = (altitude - self._prev_alt) / dt if dt and self._prev_alt is not None else 0.0
+        a = cfg.roll_rate_smoothing_alpha
+        self._roll_rate_smoothed = a * raw_roll_rate + (1.0 - a) * self._roll_rate_smoothed
+        b = cfg.pitch_rate_smoothing_alpha
+        self._pitch_rate_smoothed = b * raw_pitch_rate + (1.0 - b) * self._pitch_rate_smoothed
         flight_path_angle = float(np.degrees(np.arcsin(
             np.clip(vertical_speed / speed, -1.0, 1.0) if speed > 1e-3 else 0.0
         )))
 
-        # Bank-direction commit (unchanged shape; only the flip threshold
-        # changed, per P7's finding).
-        desired_sign = 1 if az >= 0.0 else -1
-        if self._turn_sign == 0:
-            self._turn_sign = desired_sign
-        elif desired_sign != self._turn_sign and abs(az) >= cfg.turn_sign_flip_deg:
-            self._turn_sign = desired_sign
-        elif abs(az) <= cfg.turn_sign_deadband_deg:
-            desired_sign = self._turn_sign
+        ata = 0.0
+        distance = 0.0
+        az = el = 0.0
+        if cfg.bank_step_test:
+            elapsed = now - self._start_time
+            cum = 0.0
+            target_bank = BANK_STEP_TEST_SEQUENCE[-1][1]
+            for duration, bank in BANK_STEP_TEST_SEQUENCE:
+                cum += duration
+                if elapsed < cum:
+                    target_bank = bank
+                    break
+            desired_gamma = 0.0  # hold flat -- isolating the roll loop only
+        elif target is not None:
+            az, el = self.geometry._get_los_angle(own, target)
+            az, el = float(az), float(el)
+            ata = abs(float(self.geometry._get_antenna_train_angle(own, target, False)))
+            distance = float(self.geometry._get_distance(own, target))
 
-        az_fraction = float(np.clip(abs(az) / cfg.full_bank_az_deg, 0.0, 1.0))
-        target_bank_mag = cfg.min_turn_bank_deg + az_fraction * (cfg.max_bank_deg - cfg.min_turn_bank_deg)
-        if ata <= cfg.fine_ata_deg:
-            target_bank_mag *= float(np.clip(ata / cfg.fine_ata_deg, 0.0, 1.0))
-        target_bank = self._turn_sign * target_bank_mag
+            desired_sign = 1 if az >= 0.0 else -1
+            if self._turn_sign == 0:
+                self._turn_sign = desired_sign
+            elif desired_sign != self._turn_sign and abs(az) >= cfg.turn_sign_flip_deg:
+                self._turn_sign = desired_sign
+            elif abs(az) <= cfg.turn_sign_deadband_deg:
+                desired_sign = self._turn_sign
 
-        # Roll PID.
+            az_fraction = float(np.clip(abs(az) / cfg.full_bank_az_deg, 0.0, 1.0))
+            target_bank_mag = cfg.min_turn_bank_deg + az_fraction * (cfg.max_bank_deg - cfg.min_turn_bank_deg)
+            if ata <= cfg.fine_ata_deg:
+                target_bank_mag *= float(np.clip(ata / cfg.fine_ata_deg, 0.0, 1.0))
+            target_bank = self._turn_sign * target_bank_mag
+
+            # World-frame flight-path-angle target (not body-frame el) --
+            # point the velocity vector at the target's altitude over the
+            # horizontal range, per 전술.txt.
+            own_n, own_e = float(own[StateIndex.N]), float(own[StateIndex.E])
+            tgt_n, tgt_e = float(target[StateIndex.N]), float(target[StateIndex.E])
+            horizontal_distance = max(1.0, float(np.hypot(tgt_n - own_n, tgt_e - own_e)))
+            target_alt = float(target[StateIndex.ALT])
+            desired_gamma = float(np.degrees(np.arctan2(target_alt - altitude, horizontal_distance)))
+        else:
+            target_bank = 0.0
+            desired_gamma = 0.0
+
+        # Roll rate-cascade.
         bank_error = _wrap180(target_bank - current_bank)
-        if dt:
-            self._roll_integral = float(np.clip(
-                self._roll_integral + bank_error * dt,
-                -cfg.roll_integral_clamp / max(cfg.roll_ki, 1e-6),
-                cfg.roll_integral_clamp / max(cfg.roll_ki, 1e-6),
-            ))
-        roll_raw = float(np.clip(
-            cfg.roll_kp * bank_error / cfg.bank_error_norm_deg
-            + cfg.roll_ki * self._roll_integral
-            - cfg.roll_kd * roll_rate,
-            -1.0, 1.0,
+        desired_roll_rate = float(np.clip(
+            cfg.bank_kp * bank_error, -cfg.roll_desired_rate_limit_degps, cfg.roll_desired_rate_limit_degps
         ))
-        self._roll_cmd += float(np.clip(roll_raw - self._roll_cmd, -cfg.roll_delta_limit, cfg.roll_delta_limit))
+        roll_cmd = float(np.clip(
+            (desired_roll_rate - self._roll_rate_smoothed) / cfg.roll_rate_gain_degps_per_unit,
+            -cfg.roll_command_limit, cfg.roll_command_limit,
+        ))
 
-        # Pitch: trim + asymmetric-P aim (LOS elevation, trustworthy only
-        # near wings-level) + D on measured pitch rate.
-        pitch_error = el  # positive el = target above = need nose up = negative pitch_cmd
-        norm = cfg.pitch_norm_down_deg if pitch_error < 0 else cfg.pitch_norm_up_deg
-        pitch_raw = cfg.level_pitch_trim + float(np.clip(-pitch_error / norm, -cfg.max_pitch_cmd, cfg.max_pitch_cmd))
-        pitch_raw -= cfg.pitch_kd * pitch_rate
-        pitch_raw = float(np.clip(pitch_raw, -1.0, 1.0))
-        self._pitch_cmd += float(np.clip(pitch_raw - self._pitch_cmd, -cfg.pitch_delta_limit, cfg.pitch_delta_limit))
+        # Pitch rate-cascade.
+        gamma_error = desired_gamma - flight_path_angle
+        desired_pitch_rate = float(np.clip(
+            cfg.gamma_kp * gamma_error, -cfg.pitch_desired_rate_limit_degps, cfg.pitch_desired_rate_limit_degps
+        ))
+        # Sign is deliberately inverted: MORE nose-up needed (positive
+        # desired_pitch_rate, since gamma should increase) -> NEGATIVE
+        # pitch_cmd (live convention: positive=nose-down).
+        pitch_cmd = float(np.clip(
+            cfg.pitch_attitude_trim - desired_pitch_rate / cfg.pitch_rate_gain_degps_per_unit,
+            -cfg.pitch_command_limit, cfg.pitch_command_limit,
+        ))
 
-        # Altitude safety backstop -- flight_path_angle based (velocity
-        # vector), not Euler own_pitch, so a banked genuine dive is caught
-        # even if body-frame pitch attitude looks moderate.
+        # Altitude safety backstop.
         diving = flight_path_angle <= cfg.dive_flight_path_floor_deg
         if altitude <= cfg.altitude_floor_m or (diving and altitude < cfg.altitude_recovery_m):
-            self._pitch_cmd = min(self._pitch_cmd, -0.6)
-            self._roll_cmd = float(np.clip(self._roll_cmd, -0.3, 0.3))
+            pitch_cmd = min(pitch_cmd, -0.6)
+            roll_cmd = float(np.clip(roll_cmd, -0.3, 0.3))
         elif altitude < cfg.altitude_recovery_m:
             recovery = (cfg.altitude_recovery_m - altitude) / (cfg.altitude_recovery_m - cfg.altitude_floor_m)
-            self._pitch_cmd = min(self._pitch_cmd, -0.6 * recovery)
+            pitch_cmd = min(pitch_cmd, -0.6 * recovery)
 
-        if ata <= cfg.track_ata_deg and distance <= cfg.weapon_range_m:
+        if cfg.bank_step_test:
+            state = "bank_step_test"
+            throttle = cfg.throttle_turn
+        elif ata <= cfg.track_ata_deg and distance <= cfg.weapon_range_m:
             state = "weapons_track"
             throttle = cfg.throttle_track
         elif ata <= cfg.fine_ata_deg:
@@ -243,7 +278,7 @@ class W1ControllerActionProvider(ActionProvider):
             throttle = cfg.throttle_turn
 
         action = np.clip(
-            np.array([self._roll_cmd, self._pitch_cmd, 0.0, throttle], dtype=np.float32),
+            np.array([roll_cmd, pitch_cmd, 0.0, throttle], dtype=np.float32),
             [-1.0, -1.0, -1.0, 0.0], [1.0, 1.0, 1.0, 1.0],
         ).astype(np.float32)
 
@@ -257,11 +292,11 @@ class W1ControllerActionProvider(ActionProvider):
             "state": state, "ata": ata, "distance": distance,
             "los_az": az, "los_el": el,
             "target_bank": target_bank, "current_bank": current_bank, "bank_error": bank_error,
-            "roll_rate": roll_rate, "pitch_rate": pitch_rate,
-            "roll_integral": self._roll_integral,
-            "own_pitch": current_pitch, "own_alt": altitude,
-            "vertical_speed": vertical_speed, "flight_path_angle": flight_path_angle,
-            "roll_cmd": float(self._roll_cmd), "pitch_cmd": float(self._pitch_cmd),
+            "desired_roll_rate": desired_roll_rate, "measured_roll_rate": self._roll_rate_smoothed,
+            "desired_gamma": desired_gamma, "flight_path_angle": flight_path_angle, "gamma_error": gamma_error,
+            "desired_pitch_rate": desired_pitch_rate, "measured_pitch_rate": self._pitch_rate_smoothed,
+            "own_pitch": current_pitch, "own_alt": altitude, "vertical_speed": vertical_speed,
+            "roll_cmd": roll_cmd, "pitch_cmd": pitch_cmd,
         }
         self.info_log.append(info)
         return ActionResult(action=action, source=f"w1[{state}]", confidence=1.0, info=info)
