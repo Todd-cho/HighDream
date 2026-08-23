@@ -1,0 +1,4466 @@
+{
+  "final_test_warning": "One-shot final set. Do not tune against these seeds.",
+  "seed_base": 2026082300,
+  "checkpoint": "C:\\AIP\\Release_v2_altitude\\Release_v2\\artifacts\\checkpoints\\highdream\\residual_w56_gain15_wezcurr_200iter_seed01\\checkpoint_000050",
+  "cases": [
+    {
+      "case_id": "straight_level_a00_r0",
+      "opponent": "straight_level",
+      "alpha_deg": 0.0,
+      "seed": 2026082300
+    },
+    {
+      "case_id": "straight_level_a00_r1",
+      "opponent": "straight_level",
+      "alpha_deg": 0.0,
+      "seed": 2026082301
+    },
+    {
+      "case_id": "straight_level_a00_r2",
+      "opponent": "straight_level",
+      "alpha_deg": 0.0,
+      "seed": 2026082302
+    },
+    {
+      "case_id": "straight_level_a00_r3",
+      "opponent": "straight_level",
+      "alpha_deg": 0.0,
+      "seed": 2026082303
+    },
+    {
+      "case_id": "straight_level_a91_r0",
+      "opponent": "straight_level",
+      "alpha_deg": 91.0,
+      "seed": 2026083210
+    },
+    {
+      "case_id": "straight_level_a91_r1",
+      "opponent": "straight_level",
+      "alpha_deg": 91.0,
+      "seed": 2026083211
+    },
+    {
+      "case_id": "straight_level_a91_r2",
+      "opponent": "straight_level",
+      "alpha_deg": 91.0,
+      "seed": 2026083212
+    },
+    {
+      "case_id": "straight_level_a91_r3",
+      "opponent": "straight_level",
+      "alpha_deg": 91.0,
+      "seed": 2026083213
+    },
+    {
+      "case_id": "steady_turn_a00_r0",
+      "opponent": "steady_turn",
+      "alpha_deg": 0.0,
+      "seed": 2026082400
+    },
+    {
+      "case_id": "steady_turn_a00_r1",
+      "opponent": "steady_turn",
+      "alpha_deg": 0.0,
+      "seed": 2026082401
+    },
+    {
+      "case_id": "steady_turn_a00_r2",
+      "opponent": "steady_turn",
+      "alpha_deg": 0.0,
+      "seed": 2026082402
+    },
+    {
+      "case_id": "steady_turn_a00_r3",
+      "opponent": "steady_turn",
+      "alpha_deg": 0.0,
+      "seed": 2026082403
+    },
+    {
+      "case_id": "steady_turn_a91_r0",
+      "opponent": "steady_turn",
+      "alpha_deg": 91.0,
+      "seed": 2026083310
+    },
+    {
+      "case_id": "steady_turn_a91_r1",
+      "opponent": "steady_turn",
+      "alpha_deg": 91.0,
+      "seed": 2026083311
+    },
+    {
+      "case_id": "steady_turn_a91_r2",
+      "opponent": "steady_turn",
+      "alpha_deg": 91.0,
+      "seed": 2026083312
+    },
+    {
+      "case_id": "steady_turn_a91_r3",
+      "opponent": "steady_turn",
+      "alpha_deg": 91.0,
+      "seed": 2026083313
+    },
+    {
+      "case_id": "scripted_pursuit_a00_r0",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 0.0,
+      "seed": 2026082500
+    },
+    {
+      "case_id": "scripted_pursuit_a00_r1",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 0.0,
+      "seed": 2026082501
+    },
+    {
+      "case_id": "scripted_pursuit_a00_r2",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 0.0,
+      "seed": 2026082502
+    },
+    {
+      "case_id": "scripted_pursuit_a00_r3",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 0.0,
+      "seed": 2026082503
+    },
+    {
+      "case_id": "scripted_pursuit_a91_r0",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 91.0,
+      "seed": 2026083410
+    },
+    {
+      "case_id": "scripted_pursuit_a91_r1",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 91.0,
+      "seed": 2026083411
+    },
+    {
+      "case_id": "scripted_pursuit_a91_r2",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 91.0,
+      "seed": 2026083412
+    },
+    {
+      "case_id": "scripted_pursuit_a91_r3",
+      "opponent": "scripted_pursuit",
+      "alpha_deg": 91.0,
+      "seed": 2026083413
+    },
+    {
+      "case_id": "vertical_weave_a00_r0",
+      "opponent": "vertical_weave",
+      "alpha_deg": 0.0,
+      "seed": 2026082600
+    },
+    {
+      "case_id": "vertical_weave_a00_r1",
+      "opponent": "vertical_weave",
+      "alpha_deg": 0.0,
+      "seed": 2026082601
+    },
+    {
+      "case_id": "vertical_weave_a00_r2",
+      "opponent": "vertical_weave",
+      "alpha_deg": 0.0,
+      "seed": 2026082602
+    },
+    {
+      "case_id": "vertical_weave_a00_r3",
+      "opponent": "vertical_weave",
+      "alpha_deg": 0.0,
+      "seed": 2026082603
+    },
+    {
+      "case_id": "vertical_weave_a91_r0",
+      "opponent": "vertical_weave",
+      "alpha_deg": 91.0,
+      "seed": 2026083510
+    },
+    {
+      "case_id": "vertical_weave_a91_r1",
+      "opponent": "vertical_weave",
+      "alpha_deg": 91.0,
+      "seed": 2026083511
+    },
+    {
+      "case_id": "vertical_weave_a91_r2",
+      "opponent": "vertical_weave",
+      "alpha_deg": 91.0,
+      "seed": 2026083512
+    },
+    {
+      "case_id": "vertical_weave_a91_r3",
+      "opponent": "vertical_weave",
+      "alpha_deg": 91.0,
+      "seed": 2026083513
+    }
+  ],
+  "summaries": {
+    "rule_gain100": {
+      "episodes": 32,
+      "win_rate": 0.75,
+      "loss_rate": 0.0,
+      "draw_rate": 0.25,
+      "crash_rate": 0.0,
+      "mean_target_health_loss": 0.6363268251574729,
+      "mean_ownship_health_loss": 0.0037911136346992884,
+      "mean_damage_exchange": 0.6325357115227735,
+      "median_damage_exchange": 0.9610168304022031,
+      "worst_quartile_threshold": 0.06305520705505877,
+      "mean_gate_active_rate": 0.43941873677027904,
+      "gate_active_episode_rate": 0.90625,
+      "mean_residual_abs_by_axis": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_residual_saturation_rate": 0.0,
+      "total_safety_override_steps": 32,
+      "minimum_altitude_m": 2762.4353184
+    },
+    "rule_gain150": {
+      "episodes": 32,
+      "win_rate": 0.75,
+      "loss_rate": 0.0,
+      "draw_rate": 0.25,
+      "crash_rate": 0.0,
+      "mean_target_health_loss": 0.659418453853702,
+      "mean_ownship_health_loss": 0.0037911137814073716,
+      "mean_damage_exchange": 0.6556273400722946,
+      "median_damage_exchange": 0.9604200305695988,
+      "worst_quartile_threshold": 0.06363001588565864,
+      "mean_gate_active_rate": 0.44013431191851843,
+      "gate_active_episode_rate": 0.90625,
+      "mean_residual_abs_by_axis": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean_residual_saturation_rate": 0.0,
+      "total_safety_override_steps": 32,
+      "minimum_altitude_m": 2766.6750864
+    },
+    "residual_pitch200": {
+      "episodes": 32,
+      "win_rate": 0.875,
+      "loss_rate": 0.0,
+      "draw_rate": 0.125,
+      "crash_rate": 0.0,
+      "mean_target_health_loss": 0.7477595684260644,
+      "mean_ownship_health_loss": 0.0037911137814073716,
+      "mean_damage_exchange": 0.7439684546446571,
+      "median_damage_exchange": 1.0055866090259769,
+      "worst_quartile_threshold": 0.40671709871187534,
+      "mean_gate_active_rate": 0.3819129213328461,
+      "gate_active_episode_rate": 0.90625,
+      "mean_residual_abs_by_axis": [
+        0.21404522493993827,
+        0.21474957615507037,
+        0.2593363037944191
+      ],
+      "mean_residual_saturation_rate": 0.06179240044389507,
+      "total_safety_override_steps": 32,
+      "minimum_altitude_m": 2766.6750864
+    },
+    "residual_pitch225": {
+      "episodes": 32,
+      "win_rate": 0.84375,
+      "loss_rate": 0.0,
+      "draw_rate": 0.15625,
+      "crash_rate": 0.0,
+      "mean_target_health_loss": 0.7478691321893844,
+      "mean_ownship_health_loss": 0.0037911137814073716,
+      "mean_damage_exchange": 0.7440780184079772,
+      "median_damage_exchange": 1.006456268008312,
+      "worst_quartile_threshold": 0.4121476683500321,
+      "mean_gate_active_rate": 0.38172346684702824,
+      "gate_active_episode_rate": 0.90625,
+      "mean_residual_abs_by_axis": [
+        0.21520166711223487,
+        0.2148827585882751,
+        0.25835313020459816
+      ],
+      "mean_residual_saturation_rate": 0.061319783883772634,
+      "total_safety_override_steps": 32,
+      "minimum_altitude_m": 2766.6750864
+    }
+  },
+  "paired_comparisons": {
+    "residual_pitch200_minus_rule_gain150": {
+      "mean_delta": 0.08834111457236242,
+      "median_delta": 0.010095366087154889,
+      "bootstrap_95pct_ci": [
+        0.03026734330568553,
+        0.16412604273362885
+      ],
+      "positive_cases": 26,
+      "negative_cases": 2,
+      "ties": 4
+    },
+    "residual_pitch225_minus_rule_gain150": {
+      "mean_delta": 0.08845067833568246,
+      "median_delta": 0.011638780460644926,
+      "bootstrap_95pct_ci": [
+        0.02989530205651239,
+        0.16495721560180673
+      ],
+      "positive_cases": 25,
+      "negative_cases": 2,
+      "ties": 5
+    },
+    "residual_pitch225_minus_residual_pitch200": {
+      "mean_delta": 0.00010956376332004955,
+      "median_delta": 0.0,
+      "bootstrap_95pct_ci": [
+        -0.005788198752111595,
+        0.006212629177709538
+      ],
+      "positive_cases": 15,
+      "negative_cases": 13,
+      "ties": 4
+    }
+  },
+  "by_angle": {
+    "rule_gain100": {
+      "0": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.5773908456117913,
+        "mean_ownship_health_loss": 0.007582227269398577,
+        "mean_damage_exchange": 0.5698086183423927,
+        "median_damage_exchange": 0.6808281887907526,
+        "worst_quartile_threshold": 0.06305520705505877,
+        "mean_gate_active_rate": 0.5629504487706893,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2762.4353184
+      },
+      "91": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.6952628047031543,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.6952628047031543,
+        "median_damage_exchange": 0.9972003568114012,
+        "worst_quartile_threshold": 0.16792309668026276,
+        "mean_gate_active_rate": 0.31588702476986874,
+        "gate_active_episode_rate": 0.8125,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2994.847452
+      }
+    },
+    "rule_gain150": {
+      "0": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.6244504245295646,
+        "mean_ownship_health_loss": 0.007582227562814743,
+        "mean_damage_exchange": 0.6168681969667498,
+        "median_damage_exchange": 0.8580303036853996,
+        "worst_quartile_threshold": 0.06363001588565864,
+        "mean_gate_active_rate": 0.562994579855967,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2766.6750864
+      },
+      "91": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.6943864831778395,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.6943864831778395,
+        "median_damage_exchange": 0.9972380151310669,
+        "worst_quartile_threshold": 0.1734327617239123,
+        "mean_gate_active_rate": 0.3172740439810699,
+        "gate_active_episode_rate": 0.8125,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2994.847452
+      }
+    },
+    "residual_pitch200": {
+      "0": {
+        "episodes": 16,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.7649532150805609,
+        "mean_ownship_health_loss": 0.007582227562814743,
+        "mean_damage_exchange": 0.7573709875177462,
+        "median_damage_exchange": 1.0035796062538744,
+        "worst_quartile_threshold": 0.7145542656680988,
+        "mean_gate_active_rate": 0.4802390326551377,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.2375152986989338,
+          0.2556065808129585,
+          0.33189099250106424
+        ],
+        "mean_residual_saturation_rate": 0.10681305156481527,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2766.6750864
+      },
+      "91": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.7305659217715679,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.7305659217715679,
+        "median_damage_exchange": 1.007668127412839,
+        "worst_quartile_threshold": 0.3963194392691049,
+        "mean_gate_active_rate": 0.2835868100105545,
+        "gate_active_episode_rate": 0.8125,
+        "mean_residual_abs_by_axis": [
+          0.19057515118094273,
+          0.1738925714971822,
+          0.18678161508777386
+        ],
+        "mean_residual_saturation_rate": 0.01677174932297488,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2994.847452
+      }
+    },
+    "residual_pitch225": {
+      "0": {
+        "episodes": 16,
+        "win_rate": 0.9375,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0625,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.7680978396107478,
+        "mean_ownship_health_loss": 0.007582227562814743,
+        "mean_damage_exchange": 0.760515612047933,
+        "median_damage_exchange": 1.006991203060334,
+        "worst_quartile_threshold": 0.7176172531589345,
+        "mean_gate_active_rate": 0.48075003275055034,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.2387006476196134,
+          0.25589956268728387,
+          0.32997153546712055
+        ],
+        "mean_residual_saturation_rate": 0.10604571440596813,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2766.6750864
+      },
+      "91": {
+        "episodes": 16,
+        "win_rate": 0.75,
+        "loss_rate": 0.0,
+        "draw_rate": 0.25,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.7276404247680212,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.7276404247680212,
+        "median_damage_exchange": 1.006456268008312,
+        "worst_quartile_threshold": 0.3977251002536817,
+        "mean_gate_active_rate": 0.2826969009435061,
+        "gate_active_episode_rate": 0.8125,
+        "mean_residual_abs_by_axis": [
+          0.19170268660485637,
+          0.1738659544892663,
+          0.18673472494207566
+        ],
+        "mean_residual_saturation_rate": 0.016593853361577142,
+        "total_safety_override_steps": 16,
+        "minimum_altitude_m": 2994.847452
+      }
+    }
+  },
+  "by_opponent": {
+    "rule_gain100": {
+      "straight_level": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.9264297818017581,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.9264297818017581,
+        "median_damage_exchange": 1.0012833867663449,
+        "worst_quartile_threshold": 0.9869015479222226,
+        "mean_gate_active_rate": 0.43964884731384346,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2894.8047768
+      },
+      "steady_turn": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.7757973138129377,
+        "mean_ownship_health_loss": 0.005985535176870227,
+        "mean_damage_exchange": 0.7698117786360674,
+        "median_damage_exchange": 0.9779835433556647,
+        "worst_quartile_threshold": 0.7184022139753099,
+        "mean_gate_active_rate": 0.42405795292916926,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2982.4728768
+      },
+      "scripted_pursuit": {
+        "episodes": 8,
+        "win_rate": 0.0,
+        "loss_rate": 0.0,
+        "draw_rate": 1.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.0,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.0,
+        "median_damage_exchange": 0.0,
+        "worst_quartile_threshold": 0.0,
+        "mean_gate_active_rate": 0.45548611111111115,
+        "gate_active_episode_rate": 0.625,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2908.2397512
+      },
+      "vertical_weave": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.8430802050151955,
+        "mean_ownship_health_loss": 0.009178919361926927,
+        "mean_damage_exchange": 0.8339012856532686,
+        "median_damage_exchange": 1.0079310631290324,
+        "worst_quartile_threshold": 0.7821672031655753,
+        "mean_gate_active_rate": 0.4384820357269923,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2762.4353184
+      }
+    },
+    "rule_gain150": {
+      "straight_level": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.9711197092568751,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.9711197092568751,
+        "median_damage_exchange": 1.0017592633457175,
+        "worst_quartile_threshold": 0.9873059681381576,
+        "mean_gate_active_rate": 0.4412026887808904,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2890.854264
+      },
+      "steady_turn": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.776099306719804,
+        "mean_ownship_health_loss": 0.005985535517034221,
+        "mean_damage_exchange": 0.7701137712027698,
+        "median_damage_exchange": 0.9773077180100113,
+        "worst_quartile_threshold": 0.7199557358667903,
+        "mean_gate_active_rate": 0.4239021681254205,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2982.4728768
+      },
+      "scripted_pursuit": {
+        "episodes": 8,
+        "win_rate": 0.0,
+        "loss_rate": 0.0,
+        "draw_rate": 1.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.0,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.0,
+        "median_damage_exchange": 0.0,
+        "worst_quartile_threshold": 0.0,
+        "mean_gate_active_rate": 0.4558333333333333,
+        "gate_active_episode_rate": 0.625,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2908.2397512
+      },
+      "vertical_weave": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.8904547994381289,
+        "mean_ownship_health_loss": 0.009178919608595265,
+        "mean_damage_exchange": 0.8812758798295336,
+        "median_damage_exchange": 1.0024188358941304,
+        "worst_quartile_threshold": 0.854521111932045,
+        "mean_gate_active_rate": 0.43959905743442956,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "mean_residual_saturation_rate": 0.0,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2766.6750864
+      }
+    },
+    "residual_pitch200": {
+      "straight_level": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 1.0182100561839624,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 1.0182100561839624,
+        "median_damage_exchange": 1.0163844099444013,
+        "worst_quartile_threshold": 1.0139313904798009,
+        "mean_gate_active_rate": 0.40562162492527204,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.21204854516320648,
+          0.13062979017650392,
+          0.21954677330888295
+        ],
+        "mean_residual_saturation_rate": 0.0225193764646554,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2890.854264
+      },
+      "steady_turn": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.951018418603521,
+        "mean_ownship_health_loss": 0.005985535517034221,
+        "mean_damage_exchange": 0.9450328830864867,
+        "median_damage_exchange": 1.00576267701212,
+        "worst_quartile_threshold": 0.9906294381068466,
+        "mean_gate_active_rate": 0.3384587779391661,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.24152855568818493,
+          0.2556704496524941,
+          0.29615469222045965
+        ],
+        "mean_residual_saturation_rate": 0.1127223660560889,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2982.4728768
+      },
+      "scripted_pursuit": {
+        "episodes": 8,
+        "win_rate": 0.5,
+        "loss_rate": 0.0,
+        "draw_rate": 0.5,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.013585832066669593,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.013585832066669593,
+        "median_damage_exchange": 0.00040597885678655965,
+        "worst_quartile_threshold": 0.0,
+        "mean_gate_active_rate": 0.37909722222222225,
+        "gate_active_episode_rate": 0.625,
+        "mean_residual_abs_by_axis": [
+          0.19889650732867367,
+          0.3521961004225563,
+          0.3074797548459093
+        ],
+        "mean_residual_saturation_rate": 0.08909722222222222,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2908.2397512
+      },
+      "vertical_weave": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 1.0082239668501045,
+        "mean_ownship_health_loss": 0.009178919608595265,
+        "mean_damage_exchange": 0.9990450472415093,
+        "median_damage_exchange": 1.0055866090259769,
+        "worst_quartile_threshold": 1.0025742181900923,
+        "mean_gate_active_rate": 0.404474060244724,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.20370729157968787,
+          0.12050196436872712,
+          0.21416399480242465
+        ],
+        "mean_residual_saturation_rate": 0.022830637032613756,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2766.6750864
+      }
+    },
+    "residual_pitch225": {
+      "straight_level": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 1.0109908955261562,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 1.0109908955261562,
+        "median_damage_exchange": 1.0112607636116528,
+        "worst_quartile_threshold": 1.006788087811378,
+        "mean_gate_active_rate": 0.40522913435280944,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.2135029203802139,
+          0.13081996653621142,
+          0.22038111297065738
+        ],
+        "mean_residual_saturation_rate": 0.023263106579471938,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2890.854264
+      },
+      "steady_turn": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.9536961602092804,
+        "mean_ownship_health_loss": 0.005985535517034221,
+        "mean_damage_exchange": 0.9477106246922461,
+        "median_damage_exchange": 1.0137984268561366,
+        "worst_quartile_threshold": 0.992626331054999,
+        "mean_gate_active_rate": 0.333981700836107,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.24354060053488602,
+          0.254212774497895,
+          0.29302376044808714
+        ],
+        "mean_residual_saturation_rate": 0.1103332289326086,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2982.4728768
+      },
+      "scripted_pursuit": {
+        "episodes": 8,
+        "win_rate": 0.375,
+        "loss_rate": 0.0,
+        "draw_rate": 0.625,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 0.014267297046922284,
+        "mean_ownship_health_loss": 0.0,
+        "mean_damage_exchange": 0.014267297046922284,
+        "median_damage_exchange": 0.0,
+        "worst_quartile_threshold": 0.0,
+        "mean_gate_active_rate": 0.3834027777777778,
+        "gate_active_episode_rate": 0.625,
+        "mean_residual_abs_by_axis": [
+          0.19954442356163377,
+          0.35385040722489874,
+          0.30556341807577864
+        ],
+        "mean_residual_saturation_rate": 0.08847222222222222,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2908.2397512
+      },
+      "vertical_weave": {
+        "episodes": 8,
+        "win_rate": 1.0,
+        "loss_rate": 0.0,
+        "draw_rate": 0.0,
+        "crash_rate": 0.0,
+        "mean_target_health_loss": 1.012522175975179,
+        "mean_ownship_health_loss": 0.009178919608595265,
+        "mean_damage_exchange": 1.0033432563665838,
+        "median_damage_exchange": 1.0073331601072355,
+        "worst_quartile_threshold": 1.0048170117728303,
+        "mean_gate_active_rate": 0.4042802544214187,
+        "gate_active_episode_rate": 1.0,
+        "mean_residual_abs_by_axis": [
+          0.20421872397220583,
+          0.1206478860940952,
+          0.21444422932386917
+        ],
+        "mean_residual_saturation_rate": 0.02321057780078778,
+        "total_safety_override_steps": 8,
+        "minimum_altitude_m": 2766.6750864
+      }
+    }
+  },
+  "episode_rows": {
+    "rule_gain100": [
+      {
+        "case_id": "straight_level_a00_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082300,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1721,
+        "target_health_loss": 1.0003751756582806,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0003751756582806,
+        "gate_active_steps": 749,
+        "gate_active_rate": 0.4352120859965137,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2894.8047768,
+        "wez_steps": 295
+      },
+      {
+        "case_id": "straight_level_a00_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082301,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.43250294912151765,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.43250294912151765,
+        "gate_active_steps": 639,
+        "gate_active_rate": 0.355,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2973.7525488000006,
+        "wez_steps": 204
+      },
+      {
+        "case_id": "straight_level_a00_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082302,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1599,
+        "target_health_loss": 1.0085873241358876,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0085873241358876,
+        "gate_active_steps": 747,
+        "gate_active_rate": 0.46716697936210133,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2932.012932,
+        "wez_steps": 294
+      },
+      {
+        "case_id": "straight_level_a00_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082303,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1641,
+        "target_health_loss": 1.0033596894511227,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0033596894511227,
+        "gate_active_steps": 746,
+        "gate_active_rate": 0.45460085313833026,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2933.7585215999998,
+        "wez_steps": 297
+      },
+      {
+        "case_id": "straight_level_a91_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083210,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.9935694519865058,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.9935694519865058,
+        "gate_active_steps": 752,
+        "gate_active_rate": 0.4177777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3053.6290464000003,
+        "wez_steps": 302
+      },
+      {
+        "case_id": "straight_level_a91_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083211,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1514,
+        "target_health_loss": 1.0021915978744091,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0021915978744091,
+        "gate_active_steps": 737,
+        "gate_active_rate": 0.4867899603698811,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2995.560684,
+        "wez_steps": 292
+      },
+      {
+        "case_id": "straight_level_a91_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083212,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.9668978357293732,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.9668978357293732,
+        "gate_active_steps": 750,
+        "gate_active_rate": 0.4166666666666667,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3040.0620936000005,
+        "wez_steps": 300
+      },
+      {
+        "case_id": "straight_level_a91_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083213,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1529,
+        "target_health_loss": 1.0039542304569675,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0039542304569675,
+        "gate_active_steps": 740,
+        "gate_active_rate": 0.4839764551994768,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2994.847452,
+        "wez_steps": 294
+      },
+      {
+        "case_id": "steady_turn_a00_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082400,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1554,
+        "target_health_loss": 1.0040079992838564,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0040079992838564,
+        "gate_active_steps": 695,
+        "gate_active_rate": 0.4472329472329472,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2989.3994568000003,
+        "wez_steps": 405
+      },
+      {
+        "case_id": "steady_turn_a00_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082401,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1531,
+        "target_health_loss": 1.002321726767991,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.002321726767991,
+        "gate_active_steps": 804,
+        "gate_active_rate": 0.5251469627694317,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2982.4728768,
+        "wez_steps": 400
+      },
+      {
+        "case_id": "steady_turn_a00_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082402,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1593,
+        "target_health_loss": 1.0029823015323422,
+        "ownship_health_loss": 0.047846476457309106,
+        "damage_exchange": 0.9551358250750331,
+        "gate_active_steps": 785,
+        "gate_active_rate": 0.49278091650973005,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.8007096,
+        "wez_steps": 325
+      },
+      {
+        "case_id": "steady_turn_a00_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082403,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.08411141436439773,
+        "ownship_health_loss": 3.7804957652709525e-05,
+        "damage_exchange": 0.08407360940674502,
+        "gate_active_steps": 851,
+        "gate_active_rate": 0.4727777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.7068312,
+        "wez_steps": 15
+      },
+      {
+        "case_id": "steady_turn_a91_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083310,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.8832371312202963,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.8832371312202963,
+        "gate_active_steps": 692,
+        "gate_active_rate": 0.3844444444444444,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.1118616000003,
+        "wez_steps": 378
+      },
+      {
+        "case_id": "steady_turn_a91_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083311,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1539,
+        "target_health_loss": 1.004989213457971,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.004989213457971,
+        "gate_active_steps": 803,
+        "gate_active_rate": 0.5217673814165043,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3002.4494688000004,
+        "wez_steps": 317
+      },
+      {
+        "case_id": "steady_turn_a91_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083312,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1793,
+        "target_health_loss": 1.0008312616362964,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0008312616362964,
+        "gate_active_steps": 503,
+        "gate_active_rate": 0.28053541550474065,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3043.4231232,
+        "wez_steps": 347
+      },
+      {
+        "case_id": "steady_turn_a91_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083313,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.22389746224035034,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.22389746224035034,
+        "gate_active_steps": 482,
+        "gate_active_rate": 0.2677777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.0978408,
+        "wez_steps": 140
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082500,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1660,
+        "gate_active_rate": 0.9222222222222223,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2908.2397512,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082501,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1612,
+        "gate_active_rate": 0.8955555555555555,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2981.5868232000003,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082502,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1648,
+        "gate_active_rate": 0.9155555555555556,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2961.3541992,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082503,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1633,
+        "gate_active_rate": 0.9072222222222223,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2963.9858424,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083410,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.9965864,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083411,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 6,
+        "gate_active_rate": 0.0033333333333333335,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.878324,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083412,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2999.3237448,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083413,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3032.5807776,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "vertical_weave_a00_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082600,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.3304351147759398,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.3304351147759398,
+        "gate_active_steps": 647,
+        "gate_active_rate": 0.35944444444444446,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2993.1695280000004,
+        "wez_steps": 189
+      },
+      {
+        "case_id": "vertical_weave_a00_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082601,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1595,
+        "target_health_loss": 1.0257765240595833,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0257765240595833,
+        "gate_active_steps": 777,
+        "gate_active_rate": 0.4871473354231975,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2855.2822752,
+        "wez_steps": 222
+      },
+      {
+        "case_id": "vertical_weave_a00_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082602,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.34120852728233897,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.34120852728233897,
+        "gate_active_steps": 735,
+        "gate_active_rate": 0.4083333333333333,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2867.4703128,
+        "wez_steps": 173
+      },
+      {
+        "case_id": "vertical_weave_a00_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082603,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1427,
+        "target_health_loss": 1.002584783355403,
+        "ownship_health_loss": 0.07343135489541541,
+        "damage_exchange": 0.9291534284599875,
+        "gate_active_steps": 659,
+        "gate_active_rate": 0.46180798878766643,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2762.4353184,
+        "wez_steps": 233
+      },
+      {
+        "case_id": "vertical_weave_a91_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083510,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1621,
+        "target_health_loss": 1.0119626474230785,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0119626474230785,
+        "gate_active_steps": 716,
+        "gate_active_rate": 0.4417026526835287,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3032.7118416000003,
+        "wez_steps": 244
+      },
+      {
+        "case_id": "vertical_weave_a91_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083511,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1666,
+        "target_health_loss": 1.016811916967156,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.016811916967156,
+        "gate_active_steps": 730,
+        "gate_active_rate": 0.4381752701080432,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3005.9692992,
+        "wez_steps": 234
+      },
+      {
+        "case_id": "vertical_weave_a91_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083512,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1758,
+        "target_health_loss": 1.003971300975661,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.003971300975661,
+        "gate_active_steps": 743,
+        "gate_active_rate": 0.42263936291240045,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2996.2757448,
+        "wez_steps": 256
+      },
+      {
+        "case_id": "vertical_weave_a91_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083513,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1492,
+        "target_health_loss": 1.011890825282404,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.011890825282404,
+        "gate_active_steps": 729,
+        "gate_active_rate": 0.4886058981233244,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3001.8935136,
+        "wez_steps": 289
+      }
+    ],
+    "rule_gain150": [
+      {
+        "case_id": "straight_level_a00_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082300,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1718,
+        "target_health_loss": 1.0000775938550142,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0000775938550142,
+        "gate_active_steps": 747,
+        "gate_active_rate": 0.4348079161816065,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2890.854264,
+        "wez_steps": 294
+      },
+      {
+        "case_id": "straight_level_a00_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082301,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.7866931242280897,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.7866931242280897,
+        "gate_active_steps": 658,
+        "gate_active_rate": 0.3655555555555556,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3010.9771632,
+        "wez_steps": 222
+      },
+      {
+        "case_id": "straight_level_a00_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082302,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1597,
+        "target_health_loss": 1.010110393752345,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.010110393752345,
+        "gate_active_steps": 748,
+        "gate_active_rate": 0.4683782091421415,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2933.2208544,
+        "wez_steps": 295
+      },
+      {
+        "case_id": "straight_level_a00_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082303,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1643,
+        "target_health_loss": 1.0039453494482318,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0039453494482318,
+        "gate_active_steps": 747,
+        "gate_active_rate": 0.45465611685940355,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2936.3660856,
+        "wez_steps": 297
+      },
+      {
+        "case_id": "straight_level_a91_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083210,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.9940612417353213,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.9940612417353213,
+        "gate_active_steps": 752,
+        "gate_active_rate": 0.4177777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3053.6290464000003,
+        "wez_steps": 302
+      },
+      {
+        "case_id": "straight_level_a91_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083211,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1515,
+        "target_health_loss": 1.0035888908529114,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0035888908529114,
+        "gate_active_steps": 738,
+        "gate_active_rate": 0.4871287128712871,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2995.560684,
+        "wez_steps": 292
+      },
+      {
+        "case_id": "straight_level_a91_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083212,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.9670401473466668,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.9670401473466668,
+        "gate_active_steps": 750,
+        "gate_active_rate": 0.4166666666666667,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3040.0620936000005,
+        "wez_steps": 300
+      },
+      {
+        "case_id": "straight_level_a91_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083213,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1531,
+        "target_health_loss": 1.0034409328364209,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0034409328364209,
+        "gate_active_steps": 742,
+        "gate_active_rate": 0.4846505551926845,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2994.847452,
+        "wez_steps": 296
+      },
+      {
+        "case_id": "steady_turn_a00_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082400,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1557,
+        "target_health_loss": 1.0008155222274917,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0008155222274917,
+        "gate_active_steps": 696,
+        "gate_active_rate": 0.44701348747591524,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2985.8835888000003,
+        "wez_steps": 405
+      },
+      {
+        "case_id": "steady_turn_a00_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082401,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1531,
+        "target_health_loss": 1.0019915467791085,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0019915467791085,
+        "gate_active_steps": 804,
+        "gate_active_rate": 0.5251469627694317,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2982.4728768,
+        "wez_steps": 400
+      },
+      {
+        "case_id": "steady_turn_a00_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082402,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1592,
+        "target_health_loss": 1.0016463929637118,
+        "ownship_health_loss": 0.04784647917118101,
+        "damage_exchange": 0.9537999137925308,
+        "gate_active_steps": 784,
+        "gate_active_rate": 0.49246231155778897,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.8007096,
+        "wez_steps": 325
+      },
+      {
+        "case_id": "steady_turn_a00_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082403,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.08487782614597095,
+        "ownship_health_loss": 3.78049650927581e-05,
+        "damage_exchange": 0.08484002118087819,
+        "gate_active_steps": 848,
+        "gate_active_rate": 0.4711111111111111,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.7068312,
+        "wez_steps": 15
+      },
+      {
+        "case_id": "steady_turn_a91_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083310,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.8828597537228704,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.8828597537228704,
+        "gate_active_steps": 692,
+        "gate_active_rate": 0.3844444444444444,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.1118616000003,
+        "wez_steps": 378
+      },
+      {
+        "case_id": "steady_turn_a91_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083311,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1539,
+        "target_health_loss": 1.0010458654908532,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0010458654908532,
+        "gate_active_steps": 803,
+        "gate_active_rate": 0.5217673814165043,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3002.4494688000004,
+        "wez_steps": 316
+      },
+      {
+        "case_id": "steady_turn_a91_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083312,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1794,
+        "target_health_loss": 1.0043138641298759,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0043138641298759,
+        "gate_active_steps": 505,
+        "gate_active_rate": 0.2814938684503902,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3043.4231232,
+        "wez_steps": 348
+      },
+      {
+        "case_id": "steady_turn_a91_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083313,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.23124368229854975,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.23124368229854975,
+        "gate_active_steps": 482,
+        "gate_active_rate": 0.2677777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.0978408,
+        "wez_steps": 148
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082500,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1660,
+        "gate_active_rate": 0.9222222222222223,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2908.2397512,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082501,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1614,
+        "gate_active_rate": 0.8966666666666666,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2981.8532184,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082502,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1650,
+        "gate_active_rate": 0.9166666666666666,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2961.746172,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082503,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1634,
+        "gate_active_rate": 0.9077777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2964.0306480000004,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083410,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.9965864,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083411,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 6,
+        "gate_active_rate": 0.0033333333333333335,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.878324,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083412,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2999.3237448,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083413,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3032.5807776,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "vertical_weave_a00_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082600,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.4422640208656373,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.4422640208656373,
+        "gate_active_steps": 646,
+        "gate_active_rate": 0.35888888888888887,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2995.4046264,
+        "wez_steps": 199
+      },
+      {
+        "case_id": "vertical_weave_a00_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082601,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1596,
+        "target_health_loss": 1.0260041838959086,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0260041838959086,
+        "gate_active_steps": 777,
+        "gate_active_rate": 0.4868421052631579,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2855.6492544000002,
+        "wez_steps": 237
+      },
+      {
+        "case_id": "vertical_weave_a00_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082602,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.6299819983000519,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.6299819983000519,
+        "gate_active_steps": 725,
+        "gate_active_rate": 0.4027777777777778,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2866.4617296,
+        "wez_steps": 176
+      },
+      {
+        "case_id": "vertical_weave_a00_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082603,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1405,
+        "target_health_loss": 1.0027988400114716,
+        "ownship_health_loss": 0.07343135686876212,
+        "damage_exchange": 0.9293674831427094,
+        "gate_active_steps": 642,
+        "gate_active_rate": 0.45693950177935944,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2766.6750864,
+        "wez_steps": 218
+      },
+      {
+        "case_id": "vertical_weave_a91_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083510,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1682,
+        "target_health_loss": 1.0073000588399013,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0073000588399013,
+        "gate_active_steps": 777,
+        "gate_active_rate": 0.4619500594530321,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3034.465356,
+        "wez_steps": 267
+      },
+      {
+        "case_id": "vertical_weave_a91_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083511,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1673,
+        "target_health_loss": 1.0044228832614481,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0044228832614481,
+        "gate_active_steps": 737,
+        "gate_active_rate": 0.44052600119545726,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3008.5997232000004,
+        "wez_steps": 258
+      },
+      {
+        "case_id": "vertical_weave_a91_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083512,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1756,
+        "target_health_loss": 1.0104516218037998,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0104516218037998,
+        "gate_active_steps": 741,
+        "gate_active_rate": 0.42198177676537585,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2997.8223000000003,
+        "wez_steps": 274
+      },
+      {
+        "case_id": "vertical_weave_a91_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083513,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1487,
+        "target_health_loss": 1.0004147885268126,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0004147885268126,
+        "gate_active_steps": 724,
+        "gate_active_rate": 0.48688634835238737,
+        "residual_abs_mean": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_abs_max": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3002.2745136000003,
+        "wez_steps": 283
+      }
+    ],
+    "residual_pitch200": [
+      {
+        "case_id": "straight_level_a00_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082300,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1610,
+        "target_health_loss": 1.0225079989149766,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0225079989149766,
+        "gate_active_steps": 639,
+        "gate_active_rate": 0.3968944099378882,
+        "residual_abs_mean": [
+          0.22056544970038422,
+          0.1325474085005706,
+          0.24149066298991811
+        ],
+        "residual_abs_max": [
+          1.2792637348175049,
+          0.755756676197052,
+          1.7497987747192383
+        ],
+        "residual_saturation_rate": 0.043478260869565216,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2890.854264,
+        "wez_steps": 182
+      },
+      {
+        "case_id": "straight_level_a00_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082301,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1737,
+        "target_health_loss": 1.0140114793274089,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0140114793274089,
+        "gate_active_steps": 595,
+        "gate_active_rate": 0.34254461715601614,
+        "residual_abs_mean": [
+          0.15082331425974133,
+          0.13081334843142114,
+          0.19366754416996163
+        ],
+        "residual_abs_max": [
+          1.9074766635894775,
+          0.7487182021141052,
+          1.9430656433105469
+        ],
+        "residual_saturation_rate": 0.015544041450777202,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3010.9771632,
+        "wez_steps": 169
+      },
+      {
+        "case_id": "straight_level_a00_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082302,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1488,
+        "target_health_loss": 1.0149601554913101,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0149601554913101,
+        "gate_active_steps": 639,
+        "gate_active_rate": 0.42943548387096775,
+        "residual_abs_mean": [
+          0.2292602726643885,
+          0.13841818043804396,
+          0.26300637579337766
+        ],
+        "residual_abs_max": [
+          1.219015121459961,
+          0.7184435725212097,
+          1.6723023653030396
+        ],
+        "residual_saturation_rate": 0.051075268817204304,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2933.2208544,
+        "wez_steps": 183
+      },
+      {
+        "case_id": "straight_level_a00_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082303,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1531,
+        "target_health_loss": 1.0178086643974924,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0178086643974924,
+        "gate_active_steps": 635,
+        "gate_active_rate": 0.4147615937295885,
+        "residual_abs_mean": [
+          0.22298366519373705,
+          0.1363302788512865,
+          0.2534925762580977
+        ],
+        "residual_abs_max": [
+          1.5148499011993408,
+          0.7673066854476929,
+          1.9799405336380005
+        ],
+        "residual_saturation_rate": 0.045068582625734814,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2936.3660856,
+        "wez_steps": 182
+      },
+      {
+        "case_id": "straight_level_a91_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083210,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1745,
+        "target_health_loss": 1.0241024159189704,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0241024159189704,
+        "gate_active_steps": 697,
+        "gate_active_rate": 0.3994269340974212,
+        "residual_abs_mean": [
+          0.22366256932794706,
+          0.18234732536182746,
+          0.24483695316333912
+        ],
+        "residual_abs_max": [
+          1.0439426898956299,
+          0.41608765721321106,
+          1.0978784561157227
+        ],
+        "residual_saturation_rate": 0.011461318051575931,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3053.2169568,
+        "wez_steps": 186
+      },
+      {
+        "case_id": "straight_level_a91_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083211,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1399,
+        "target_health_loss": 1.0136911239369772,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0136911239369772,
+        "gate_active_steps": 622,
+        "gate_active_rate": 0.44460328806290206,
+        "residual_abs_mean": [
+          0.2161002446650351,
+          0.11543640843409515,
+          0.20138913080271992
+        ],
+        "residual_abs_max": [
+          0.9969836473464966,
+          0.44085076451301575,
+          0.9030386209487915
+        ],
+        "residual_saturation_rate": 0.005003573981415297,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2995.560684,
+        "wez_steps": 191
+      },
+      {
+        "case_id": "straight_level_a91_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083212,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1684,
+        "target_health_loss": 1.0252413672815608,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0252413672815608,
+        "gate_active_steps": 634,
+        "gate_active_rate": 0.37648456057007124,
+        "residual_abs_mean": [
+          0.21657608838745276,
+          0.09440616950378344,
+          0.1592742399248403
+        ],
+        "residual_abs_max": [
+          1.009544849395752,
+          0.593095600605011,
+          0.9235796928405762
+        ],
+        "residual_saturation_rate": 0.0035629453681710215,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3040.0620936000005,
+        "wez_steps": 198
+      },
+      {
+        "case_id": "straight_level_a91_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083213,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1411,
+        "target_health_loss": 1.0133572442030037,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0133572442030037,
+        "gate_active_steps": 622,
+        "gate_active_rate": 0.4408221119773211,
+        "residual_abs_mean": [
+          0.2164167571069658,
+          0.114739201891003,
+          0.19921670336880892
+        ],
+        "residual_abs_max": [
+          1.0074149370193481,
+          0.46325913071632385,
+          0.9140340089797974
+        ],
+        "residual_saturation_rate": 0.004961020552799433,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2994.847452,
+        "wez_steps": 191
+      },
+      {
+        "case_id": "steady_turn_a00_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082400,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1296,
+        "target_health_loss": 1.0039665973290972,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0039665973290972,
+        "gate_active_steps": 435,
+        "gate_active_rate": 0.33564814814814814,
+        "residual_abs_mean": [
+          0.24496456643244552,
+          0.273650736363323,
+          0.3805437177630935
+        ],
+        "residual_abs_max": [
+          1.3038017749786377,
+          0.7622187733650208,
+          1.7794091701507568
+        ],
+        "residual_saturation_rate": 0.2654320987654321,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2985.8835888000003,
+        "wez_steps": 204
+      },
+      {
+        "case_id": "steady_turn_a00_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082401,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1221,
+        "target_health_loss": 1.0188849236849111,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0188849236849111,
+        "gate_active_steps": 494,
+        "gate_active_rate": 0.4045864045864046,
+        "residual_abs_mean": [
+          0.23810613919720724,
+          0.27769284788061493,
+          0.3642790423451414
+        ],
+        "residual_abs_max": [
+          1.1447126865386963,
+          0.8307381272315979,
+          1.6942198276519775
+        ],
+        "residual_saturation_rate": 0.09664209664209664,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2982.4728768,
+        "wez_steps": 161
+      },
+      {
+        "case_id": "steady_turn_a00_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082402,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1383,
+        "target_health_loss": 1.0079151823918633,
+        "ownship_health_loss": 0.04784647917118101,
+        "damage_exchange": 0.9600687032206823,
+        "gate_active_steps": 575,
+        "gate_active_rate": 0.41576283441793205,
+        "residual_abs_mean": [
+          0.2828047192599611,
+          0.2585860117603247,
+          0.2992214425423183
+        ],
+        "residual_abs_max": [
+          1.9616782665252686,
+          0.7566643953323364,
+          2.3394315242767334
+        ],
+        "residual_saturation_rate": 0.11135213304410702,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.8007096,
+        "wez_steps": 160
+      },
+      {
+        "case_id": "steady_turn_a00_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082403,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1398,
+        "target_health_loss": 1.0008541547006606,
+        "ownship_health_loss": 3.78049650927581e-05,
+        "damage_exchange": 1.000816349735568,
+        "gate_active_steps": 446,
+        "gate_active_rate": 0.3190271816881259,
+        "residual_abs_mean": [
+          0.25920122363491355,
+          0.26357005581456916,
+          0.35364991641178384
+        ],
+        "residual_abs_max": [
+          1.890489101409912,
+          0.7706116437911987,
+          2.174708366394043
+        ],
+        "residual_saturation_rate": 0.23032904148783978,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.7068312,
+        "wez_steps": 254
+      },
+      {
+        "case_id": "steady_turn_a91_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083310,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1727,
+        "target_health_loss": 1.0120719055850607,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0120719055850607,
+        "gate_active_steps": 619,
+        "gate_active_rate": 0.3584250144759699,
+        "residual_abs_mean": [
+          0.2578007949944359,
+          0.25363787387125086,
+          0.1572918812515129
+        ],
+        "residual_abs_max": [
+          0.9863874316215515,
+          0.7967628836631775,
+          0.4812734127044678
+        ],
+        "residual_saturation_rate": 0.010422698320787493,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.1118616000003,
+        "wez_steps": 276
+      },
+      {
+        "case_id": "steady_turn_a91_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083311,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1348,
+        "target_health_loss": 1.028469909415959,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.028469909415959,
+        "gate_active_steps": 534,
+        "gate_active_rate": 0.3961424332344214,
+        "residual_abs_mean": [
+          0.2766203188229607,
+          0.22102229249489547,
+          0.3146964292240934
+        ],
+        "residual_abs_max": [
+          1.0158193111419678,
+          0.8185738921165466,
+          1.2878854274749756
+        ],
+        "residual_saturation_rate": 0.16246290801186944,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3002.4494688000004,
+        "wez_steps": 159
+      },
+      {
+        "case_id": "steady_turn_a91_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083312,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1631,
+        "target_health_loss": 1.0075587566951425,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0075587566951425,
+        "gate_active_steps": 343,
+        "gate_active_rate": 0.21030042918454936,
+        "residual_abs_mean": [
+          0.18745987034322276,
+          0.28780364604629144,
+          0.34819485147207846
+        ],
+        "residual_abs_max": [
+          0.7023977637290955,
+          0.6917604804039001,
+          1.2104947566986084
+        ],
+        "residual_saturation_rate": 0.025137952176578784,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3043.4231232,
+        "wez_steps": 223
+      },
+      {
+        "case_id": "steady_turn_a91_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083313,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.5284259190254732,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.5284259190254732,
+        "gate_active_steps": 482,
+        "gate_active_rate": 0.2677777777777778,
+        "residual_abs_mean": [
+          0.18527081282033275,
+          0.20940013298868304,
+          0.15136025675365494
+        ],
+        "residual_abs_max": [
+          0.9400313496589661,
+          0.7383192777633667,
+          0.42811840772628784
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.0978408,
+        "wez_steps": 217
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082500,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0008119577135731193,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0008119577135731193,
+        "gate_active_steps": 1435,
+        "gate_active_rate": 0.7972222222222223,
+        "residual_abs_mean": [
+          0.30237776626211904,
+          0.5078464135884618,
+          0.5028489592707612
+        ],
+        "residual_abs_max": [
+          1.2176991701126099,
+          0.7682206630706787,
+          1.6807053089141846
+        ],
+        "residual_saturation_rate": 0.17277777777777778,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2908.2397512,
+        "wez_steps": 5
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082501,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.030981449831978813,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.030981449831978813,
+        "gate_active_steps": 1325,
+        "gate_active_rate": 0.7361111111111112,
+        "residual_abs_mean": [
+          0.3014800680987537,
+          0.48913452823335923,
+          0.5087349787282033
+        ],
+        "residual_abs_max": [
+          1.7599000930786133,
+          1.0353033542633057,
+          2.1314101219177246
+        ],
+        "residual_saturation_rate": 0.17722222222222223,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2981.8532184,
+        "wez_steps": 3
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082502,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.03530261121672296,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.03530261121672296,
+        "gate_active_steps": 1352,
+        "gate_active_rate": 0.7511111111111111,
+        "residual_abs_mean": [
+          0.3007178320999568,
+          0.5006243628573914,
+          0.5020243842030565
+        ],
+        "residual_abs_max": [
+          1.7003347873687744,
+          0.9523942470550537,
+          2.1980862617492676
+        ],
+        "residual_saturation_rate": 0.17444444444444446,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2961.746172,
+        "wez_steps": 3
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082503,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.04159063777108185,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.04159063777108185,
+        "gate_active_steps": 1341,
+        "gate_active_rate": 0.745,
+        "residual_abs_mean": [
+          0.30301531352257977,
+          0.4920369054283947,
+          0.4984887803428703
+        ],
+        "residual_abs_max": [
+          1.914022445678711,
+          1.159815788269043,
+          2.2250864505767822
+        ],
+        "residual_saturation_rate": 0.17055555555555554,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2964.0306480000004,
+        "wez_steps": 3
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083410,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0826416840750931,
+          0.22185136271330216,
+          0.11229295798370408
+        ],
+        "residual_abs_max": [
+          0.21258169412612915,
+          0.48441898822784424,
+          0.4984457492828369
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.9965864,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083411,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 6,
+        "gate_active_rate": 0.0033333333333333335,
+        "residual_abs_mean": [
+          0.12793650477658958,
+          0.15311643363494012,
+          0.13498331997802274
+        ],
+        "residual_abs_max": [
+          1.848388910293579,
+          0.8215962052345276,
+          1.38753342628479
+        ],
+        "residual_saturation_rate": 0.017777777777777778,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.878324,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083412,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.08682796313686089,
+          0.23261756387590948,
+          0.08460541427756349
+        ],
+        "residual_abs_max": [
+          0.24439799785614014,
+          0.46420300006866455,
+          0.4984050393104553
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2999.3237448,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083413,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.08617492665743662,
+          0.22034123304869152,
+          0.11585924398309241
+        ],
+        "residual_abs_max": [
+          0.2475394308567047,
+          0.5184171199798584,
+          0.5141688585281372
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3032.5807776,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "vertical_weave_a00_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082600,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1777,
+        "target_health_loss": 1.0040737580180086,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0040737580180086,
+        "gate_active_steps": 623,
+        "gate_active_rate": 0.3505908835115363,
+        "residual_abs_mean": [
+          0.19118184846399805,
+          0.11643803263419572,
+          0.21839760781303005
+        ],
+        "residual_abs_max": [
+          1.904001235961914,
+          0.9050944447517395,
+          2.023205041885376
+        ],
+        "residual_saturation_rate": 0.04445694991558807,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2991.8116440000003,
+        "wez_steps": 160
+      },
+      {
+        "case_id": "vertical_weave_a00_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082601,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1480,
+        "target_health_loss": 1.0031926151786517,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0031926151786517,
+        "gate_active_steps": 661,
+        "gate_active_rate": 0.4466216216216216,
+        "residual_abs_mean": [
+          0.2289829575186092,
+          0.13782510625865513,
+          0.26641091714185233
+        ],
+        "residual_abs_max": [
+          1.4179126024246216,
+          0.7318219542503357,
+          1.838014841079712
+        ],
+        "residual_saturation_rate": 0.0445945945945946,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2855.6492544000002,
+        "wez_steps": 177
+      },
+      {
+        "case_id": "vertical_weave_a00_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082602,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1703,
+        "target_health_loss": 1.0100824234853711,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0100824234853711,
+        "gate_active_steps": 628,
+        "gate_active_rate": 0.36876100998238404,
+        "residual_abs_mean": [
+          0.1620423903336603,
+          0.1313340626153887,
+          0.19994008043399206
+        ],
+        "residual_abs_max": [
+          1.8602664470672607,
+          0.7609788775444031,
+          1.9946138858795166
+        ],
+        "residual_saturation_rate": 0.0182031708749266,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2866.4617296,
+        "wez_steps": 149
+      },
+      {
+        "case_id": "vertical_weave_a00_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082603,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1338,
+        "target_health_loss": 1.0123068318358666,
+        "ownship_health_loss": 0.07343135686876212,
+        "damage_exchange": 0.9388754749671044,
+        "gate_active_steps": 575,
+        "gate_active_rate": 0.429745889387145,
+        "residual_abs_mean": [
+          0.1617372525404855,
+          0.10285701335133547,
+          0.26405889380957115
+        ],
+        "residual_abs_max": [
+          2.0632824897766113,
+          0.7517409920692444,
+          2.5970256328582764
+        ],
+        "residual_saturation_rate": 0.04783258594917788,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2766.6750864,
+        "wez_steps": 160
+      },
+      {
+        "case_id": "vertical_weave_a91_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083510,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1562,
+        "target_health_loss": 1.0007190272244146,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0007190272244146,
+        "gate_active_steps": 657,
+        "gate_active_rate": 0.4206145966709347,
+        "residual_abs_mean": [
+          0.22979310209589812,
+          0.1570682318597345,
+          0.2471621312283304
+        ],
+        "residual_abs_max": [
+          1.1996597051620483,
+          0.3832913339138031,
+          1.1796470880508423
+        ],
+        "residual_saturation_rate": 0.015364916773367477,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3034.1133120000004,
+        "wez_steps": 163
+      },
+      {
+        "case_id": "vertical_weave_a91_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083511,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1541,
+        "target_health_loss": 1.0077774981305354,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0077774981305354,
+        "gate_active_steps": 605,
+        "gate_active_rate": 0.3926022063595068,
+        "residual_abs_mean": [
+          0.22207308269004924,
+          0.10160902255631156,
+          0.1617008608008634
+        ],
+        "residual_abs_max": [
+          0.984624445438385,
+          0.5529937744140625,
+          0.895378053188324
+        ],
+        "residual_saturation_rate": 0.0006489292667099286,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3012.9041088,
+        "wez_steps": 152
+      },
+      {
+        "case_id": "vertical_weave_a91_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083512,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1645,
+        "target_health_loss": 1.0205401208940437,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0205401208940437,
+        "gate_active_steps": 630,
+        "gate_active_rate": 0.3829787234042553,
+        "residual_abs_mean": [
+          0.21775723920008422,
+          0.10221775694662495,
+          0.16251584836097835
+        ],
+        "residual_abs_max": [
+          1.1102526187896729,
+          0.5656014084815979,
+          0.9344546794891357
+        ],
+        "residual_saturation_rate": 0.00425531914893617,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3014.4302423999998,
+        "wez_steps": 175
+      },
+      {
+        "case_id": "vertical_weave_a91_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083513,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1372,
+        "target_health_loss": 1.0070994600339453,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0070994600339453,
+        "gate_active_steps": 609,
+        "gate_active_rate": 0.44387755102040816,
+        "residual_abs_mean": [
+          0.2160904597947184,
+          0.11466648872757097,
+          0.1931256188307794
+        ],
+        "residual_abs_max": [
+          1.009682536125183,
+          0.39515164494514465,
+          0.8473038673400879
+        ],
+        "residual_saturation_rate": 0.007288629737609329,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3001.8218856,
+        "wez_steps": 182
+      }
+    ],
+    "residual_pitch225": [
+      {
+        "case_id": "straight_level_a00_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082300,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1610,
+        "target_health_loss": 1.01410087406621,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.01410087406621,
+        "gate_active_steps": 639,
+        "gate_active_rate": 0.3968944099378882,
+        "residual_abs_mean": [
+          0.22137902546963245,
+          0.1326539362225427,
+          0.24209453061292446
+        ],
+        "residual_abs_max": [
+          1.2792637348175049,
+          0.755756676197052,
+          1.7497987747192383
+        ],
+        "residual_saturation_rate": 0.04472049689440994,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2890.854264,
+        "wez_steps": 182
+      },
+      {
+        "case_id": "straight_level_a00_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082301,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1737,
+        "target_health_loss": 1.016789470665451,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.016789470665451,
+        "gate_active_steps": 595,
+        "gate_active_rate": 0.34254461715601614,
+        "residual_abs_mean": [
+          0.15145581598926033,
+          0.1307839918090808,
+          0.19423679239130012
+        ],
+        "residual_abs_max": [
+          1.9074766635894775,
+          0.7487182021141052,
+          1.9430656433105469
+        ],
+        "residual_saturation_rate": 0.015544041450777202,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3010.9771632,
+        "wez_steps": 169
+      },
+      {
+        "case_id": "straight_level_a00_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082302,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1485,
+        "target_health_loss": 1.0148964903506619,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0148964903506619,
+        "gate_active_steps": 636,
+        "gate_active_rate": 0.42828282828282827,
+        "residual_abs_mean": [
+          0.23176745329403417,
+          0.13845423841284532,
+          0.26410696773291237
+        ],
+        "residual_abs_max": [
+          1.219015121459961,
+          0.7184435725212097,
+          1.6723023653030396
+        ],
+        "residual_saturation_rate": 0.05454545454545454,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2933.2208544,
+        "wez_steps": 180
+      },
+      {
+        "case_id": "straight_level_a00_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 0.0,
+        "seed": 2026082303,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1531,
+        "target_health_loss": 1.0084206531570956,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0084206531570956,
+        "gate_active_steps": 635,
+        "gate_active_rate": 0.4147615937295885,
+        "residual_abs_mean": [
+          0.22353015676235682,
+          0.13648404668989833,
+          0.2538528290536476
+        ],
+        "residual_abs_max": [
+          1.5148499011993408,
+          0.7673066854476929,
+          1.9799405336380005
+        ],
+        "residual_saturation_rate": 0.045721750489875895,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2936.3660856,
+        "wez_steps": 181
+      },
+      {
+        "case_id": "straight_level_a91_r0",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083210,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1745,
+        "target_health_loss": 1.0070646889546666,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0070646889546666,
+        "gate_active_steps": 697,
+        "gate_active_rate": 0.3994269340974212,
+        "residual_abs_mean": [
+          0.22436286326401725,
+          0.182406632100795,
+          0.24550898619220302
+        ],
+        "residual_abs_max": [
+          1.0476959943771362,
+          0.41565701365470886,
+          1.1020781993865967
+        ],
+        "residual_saturation_rate": 0.012034383954154728,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.7500032000003,
+        "wez_steps": 185
+      },
+      {
+        "case_id": "straight_level_a91_r1",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083211,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1396,
+        "target_health_loss": 1.005958284381512,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.005958284381512,
+        "gate_active_steps": 619,
+        "gate_active_rate": 0.44340974212034384,
+        "residual_abs_mean": [
+          0.21894689355336427,
+          0.11605350759359381,
+          0.20273503922139505
+        ],
+        "residual_abs_max": [
+          0.991457998752594,
+          0.4545290768146515,
+          0.909984290599823
+        ],
+        "residual_saturation_rate": 0.004297994269340974,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2995.560684,
+        "wez_steps": 188
+      },
+      {
+        "case_id": "straight_level_a91_r2",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083212,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1684,
+        "target_health_loss": 1.0031082385813181,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0031082385813181,
+        "gate_active_steps": 634,
+        "gate_active_rate": 0.37648456057007124,
+        "residual_abs_mean": [
+          0.21731531851916108,
+          0.0945527896270125,
+          0.15973611245033575
+        ],
+        "residual_abs_max": [
+          1.0010498762130737,
+          0.593095600605011,
+          0.919096827507019
+        ],
+        "residual_saturation_rate": 0.0035629453681710215,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3040.0620936000005,
+        "wez_steps": 198
+      },
+      {
+        "case_id": "straight_level_a91_r3",
+        "opponent": "straight_level",
+        "alpha_deg": 91.0,
+        "seed": 2026083213,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1409,
+        "target_health_loss": 1.0175884640523347,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0175884640523347,
+        "gate_active_steps": 620,
+        "gate_active_rate": 0.44002838892831797,
+        "residual_abs_mean": [
+          0.21926583618988502,
+          0.11517058983392289,
+          0.2007776461105405
+        ],
+        "residual_abs_max": [
+          0.998095691204071,
+          0.46325913071632385,
+          0.9099358320236206
+        ],
+        "residual_saturation_rate": 0.0056777856635912,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2994.847452,
+        "wez_steps": 189
+      },
+      {
+        "case_id": "steady_turn_a00_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082400,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1278,
+        "target_health_loss": 1.0138797921020966,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0138797921020966,
+        "gate_active_steps": 417,
+        "gate_active_rate": 0.32629107981220656,
+        "residual_abs_mean": [
+          0.2400004514682519,
+          0.2697832822640818,
+          0.37008195107435465
+        ],
+        "residual_abs_max": [
+          1.3038017749786377,
+          0.7702390551567078,
+          1.7794091701507568
+        ],
+        "residual_saturation_rate": 0.2566510172143975,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2985.8835888000003,
+        "wez_steps": 186
+      },
+      {
+        "case_id": "steady_turn_a00_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082401,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1214,
+        "target_health_loss": 1.026173908910386,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.026173908910386,
+        "gate_active_steps": 487,
+        "gate_active_rate": 0.4011532125205931,
+        "residual_abs_mean": [
+          0.2474479907011242,
+          0.27853142058237457,
+          0.36625210992237045
+        ],
+        "residual_abs_max": [
+          1.1447126865386963,
+          0.83016437292099,
+          1.6942198276519775
+        ],
+        "residual_saturation_rate": 0.10543657331136738,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2982.4728768,
+        "wez_steps": 155
+      },
+      {
+        "case_id": "steady_turn_a00_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082402,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1373,
+        "target_health_loss": 1.0128575998855749,
+        "ownship_health_loss": 0.04784647917118101,
+        "damage_exchange": 0.9650111207143939,
+        "gate_active_steps": 565,
+        "gate_active_rate": 0.4115076474872542,
+        "residual_abs_mean": [
+          0.2893334916282041,
+          0.25753900162721,
+          0.2964720498995675
+        ],
+        "residual_abs_max": [
+          1.9616782665252686,
+          0.8263904452323914,
+          2.3394315242767334
+        ],
+        "residual_saturation_rate": 0.10706482155863073,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.8007096,
+        "wez_steps": 150
+      },
+      {
+        "case_id": "steady_turn_a00_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 0.0,
+        "seed": 2026082403,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1381,
+        "target_health_loss": 1.001869206133627,
+        "ownship_health_loss": 3.78049650927581e-05,
+        "damage_exchange": 1.001831401168534,
+        "gate_active_steps": 429,
+        "gate_active_rate": 0.3106444605358436,
+        "residual_abs_mean": [
+          0.25496068978742853,
+          0.25817151601405397,
+          0.34470505883969815
+        ],
+        "residual_abs_max": [
+          1.890489101409912,
+          0.7657375931739807,
+          2.174708366394043
+        ],
+        "residual_saturation_rate": 0.22085445329471398,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.7068312,
+        "wez_steps": 237
+      },
+      {
+        "case_id": "steady_turn_a91_r0",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083310,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1730,
+        "target_health_loss": 1.0137170616101765,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0137170616101765,
+        "gate_active_steps": 622,
+        "gate_active_rate": 0.35953757225433525,
+        "residual_abs_mean": [
+          0.2646479662416255,
+          0.2539671651685255,
+          0.1613784307086399
+        ],
+        "residual_abs_max": [
+          0.9953483939170837,
+          0.800194263458252,
+          0.4935123920440674
+        ],
+        "residual_saturation_rate": 0.011560693641618497,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.1118616000003,
+        "wez_steps": 278
+      },
+      {
+        "case_id": "steady_turn_a91_r1",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083311,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1335,
+        "target_health_loss": 1.0166257521042483,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0166257521042483,
+        "gate_active_steps": 520,
+        "gate_active_rate": 0.3895131086142322,
+        "residual_abs_mean": [
+          0.2808977044183998,
+          0.21977723641425706,
+          0.30901081792256807
+        ],
+        "residual_abs_max": [
+          0.9467707276344299,
+          0.818022608757019,
+          1.2795277833938599
+        ],
+        "residual_saturation_rate": 0.15580524344569288,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3002.4494688000004,
+        "wez_steps": 146
+      },
+      {
+        "case_id": "steady_turn_a91_r2",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083312,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1621,
+        "target_health_loss": 1.0141458272565578,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0141458272565578,
+        "gate_active_steps": 333,
+        "gate_active_rate": 0.2054287476866132,
+        "residual_abs_mean": [
+          0.18500194811583356,
+          0.286278743422685,
+          0.3447641597705664
+        ],
+        "residual_abs_max": [
+          0.6939740777015686,
+          0.6928642988204956,
+          1.214097499847412
+        ],
+        "residual_saturation_rate": 0.025293028994447873,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3043.4231232,
+        "wez_steps": 213
+      },
+      {
+        "case_id": "steady_turn_a91_r3",
+        "opponent": "steady_turn",
+        "alpha_deg": 91.0,
+        "seed": 2026083313,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.5303001336715756,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.5303001336715756,
+        "gate_active_steps": 482,
+        "gate_active_rate": 0.2677777777777778,
+        "residual_abs_mean": [
+          0.1860345619182206,
+          0.20965383048997158,
+          0.15152550544693238
+        ],
+        "residual_abs_max": [
+          0.9400313496589661,
+          0.741335391998291,
+          0.4096478819847107
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3048.0978408,
+        "wez_steps": 217
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082500,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.05617034389134856,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.05617034389134856,
+        "gate_active_steps": 1380,
+        "gate_active_rate": 0.7666666666666667,
+        "residual_abs_mean": [
+          0.30034110582588863,
+          0.5043482403498557,
+          0.48777193357650606
+        ],
+        "residual_abs_max": [
+          1.9267582893371582,
+          0.8976465463638306,
+          2.149843692779541
+        ],
+        "residual_saturation_rate": 0.16555555555555557,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2908.2397512,
+        "wez_steps": 6
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082501,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.057690272385401586,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.057690272385401586,
+        "gate_active_steps": 1349,
+        "gate_active_rate": 0.7494444444444445,
+        "residual_abs_mean": [
+          0.30240945546939557,
+          0.49487336055065195,
+          0.5012917611390973
+        ],
+        "residual_abs_max": [
+          1.6764681339263916,
+          0.980776846408844,
+          2.025691270828247
+        ],
+        "residual_saturation_rate": 0.175,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2981.8532184,
+        "wez_steps": 6
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082502,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 1387,
+        "gate_active_rate": 0.7705555555555555,
+        "residual_abs_mean": [
+          0.3040565087434111,
+          0.504989040741283,
+          0.5053471670744734
+        ],
+        "residual_abs_max": [
+          1.2451229095458984,
+          0.7981396317481995,
+          1.7273222208023071
+        ],
+        "residual_saturation_rate": 0.17777777777777778,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2961.746172,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a00_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 0.0,
+        "seed": 2026082503,
+        "outcome": "win",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.00027776009862812145,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.00027776009862812145,
+        "gate_active_steps": 1399,
+        "gate_active_rate": 0.7772222222222223,
+        "residual_abs_mean": [
+          0.3059497562640657,
+          0.4986552862057255,
+          0.5023433751012716
+        ],
+        "residual_abs_max": [
+          1.1932830810546875,
+          0.7944072484970093,
+          1.6645339727401733
+        ],
+        "residual_saturation_rate": 0.17166666666666666,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2964.0306480000004,
+        "wez_steps": 5
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r0",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083410,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.0826416840750931,
+          0.22185136271330216,
+          0.11229295798370408
+        ],
+        "residual_abs_max": [
+          0.21258169412612915,
+          0.48441898822784424,
+          0.4984457492828369
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.9965864,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r1",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083411,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 6,
+        "gate_active_rate": 0.0033333333333333335,
+        "residual_abs_mean": [
+          0.12795398832091856,
+          0.15312717031377057,
+          0.1349954914705207
+        ],
+        "residual_abs_max": [
+          1.848388910293579,
+          0.8215962052345276,
+          1.3877264261245728
+        ],
+        "residual_saturation_rate": 0.017777777777777778,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3052.878324,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r2",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083412,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.08682796313686089,
+          0.23261756387590948,
+          0.08460541427756349
+        ],
+        "residual_abs_max": [
+          0.24439799785614014,
+          0.46420300006866455,
+          0.4984050393104553
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2999.3237448,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "scripted_pursuit_a91_r3",
+        "opponent": "scripted_pursuit",
+        "alpha_deg": 91.0,
+        "seed": 2026083413,
+        "outcome": "draw",
+        "end_condition": "max time out",
+        "steps": 1800,
+        "target_health_loss": 0.0,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 0.0,
+        "gate_active_steps": 0,
+        "gate_active_rate": 0.0,
+        "residual_abs_mean": [
+          0.08617492665743662,
+          0.22034123304869152,
+          0.11585924398309241
+        ],
+        "residual_abs_max": [
+          0.2475394308567047,
+          0.5184171199798584,
+          0.5141688585281372
+        ],
+        "residual_saturation_rate": 0.0,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3032.5807776,
+        "wez_steps": 0
+      },
+      {
+        "case_id": "vertical_weave_a00_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082600,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1778,
+        "target_health_loss": 1.0165657297053605,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0165657297053605,
+        "gate_active_steps": 624,
+        "gate_active_rate": 0.35095613048368957,
+        "residual_abs_mean": [
+          0.19200697140998643,
+          0.11675783890405307,
+          0.21927002097791137
+        ],
+        "residual_abs_max": [
+          1.904001235961914,
+          0.9050944447517395,
+          2.023205041885376
+        ],
+        "residual_saturation_rate": 0.045556805399325086,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2991.3343272,
+        "wez_steps": 157
+      },
+      {
+        "case_id": "vertical_weave_a00_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082601,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1481,
+        "target_health_loss": 1.0332873091710095,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0332873091710095,
+        "gate_active_steps": 662,
+        "gate_active_rate": 0.44699527346387574,
+        "residual_abs_mean": [
+          0.22973560426097456,
+          0.1380149746347649,
+          0.266954551299356
+        ],
+        "residual_abs_max": [
+          1.4179126024246216,
+          0.7318219542503357,
+          1.838014841079712
+        ],
+        "residual_saturation_rate": 0.04456448345712356,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2855.6492544000002,
+        "wez_steps": 178
+      },
+      {
+        "case_id": "vertical_weave_a00_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082602,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1703,
+        "target_health_loss": 1.0055617529635728,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0055617529635728,
+        "gate_active_steps": 628,
+        "gate_active_rate": 0.36876100998238404,
+        "residual_abs_mean": [
+          0.16236393808601046,
+          0.13142059472921624,
+          0.20015659426020144
+        ],
+        "residual_abs_max": [
+          1.8602664470672607,
+          0.7609788775444031,
+          1.9946138858795166
+        ],
+        "residual_saturation_rate": 0.0182031708749266,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2866.4617296,
+        "wez_steps": 150
+      },
+      {
+        "case_id": "vertical_weave_a00_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 0.0,
+        "seed": 2026082603,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1337,
+        "target_health_loss": 1.011024270285541,
+        "ownship_health_loss": 0.07343135686876212,
+        "damage_exchange": 0.9375929134167789,
+        "gate_active_steps": 574,
+        "gate_active_rate": 0.4293193717277487,
+        "residual_abs_mean": [
+          0.16247194675378998,
+          0.10293223325890352,
+          0.2646068745183361
+        ],
+        "residual_abs_max": [
+          2.0632824897766113,
+          0.7517409920692444,
+          2.5970256328582764
+        ],
+        "residual_saturation_rate": 0.04786836200448766,
+        "safety_override_steps": 1,
+        "min_altitude_m": 2766.6750864,
+        "wez_steps": 159
+      },
+      {
+        "case_id": "vertical_weave_a91_r0",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083510,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1558,
+        "target_health_loss": 1.0025827882006029,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0025827882006029,
+        "gate_active_steps": 653,
+        "gate_active_rate": 0.4191270860077022,
+        "residual_abs_mean": [
+          0.2299988034070112,
+          0.15719173354334623,
+          0.24627369959971393
+        ],
+        "residual_abs_max": [
+          1.2081284523010254,
+          0.3838419020175934,
+          1.1813536882400513
+        ],
+        "residual_saturation_rate": 0.01668806161745828,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3034.0611912000004,
+        "wez_steps": 159
+      },
+      {
+        "case_id": "vertical_weave_a91_r1",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083511,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1541,
+        "target_health_loss": 1.016489237260875,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.016489237260875,
+        "gate_active_steps": 605,
+        "gate_active_rate": 0.3926022063595068,
+        "residual_abs_mean": [
+          0.2226537922089031,
+          0.10162264034774525,
+          0.162216815117222
+        ],
+        "residual_abs_max": [
+          0.984985888004303,
+          0.5529937744140625,
+          0.8956595659255981
+        ],
+        "residual_saturation_rate": 0.0006489292667099286,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3012.4889712000004,
+        "wez_steps": 154
+      },
+      {
+        "case_id": "vertical_weave_a91_r2",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083512,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1644,
+        "target_health_loss": 1.0077120685793586,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0077120685793586,
+        "gate_active_steps": 629,
+        "gate_active_rate": 0.38260340632603407,
+        "residual_abs_mean": [
+          0.2180979644841177,
+          0.10218343823307495,
+          0.162570602262796
+        ],
+        "residual_abs_max": [
+          1.1193487644195557,
+          0.5656014084815979,
+          0.9461734294891357
+        ],
+        "residual_saturation_rate": 0.004866180048661801,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3014.4302423999998,
+        "wez_steps": 175
+      },
+      {
+        "case_id": "vertical_weave_a91_r3",
+        "opponent": "vertical_weave",
+        "alpha_deg": 91.0,
+        "seed": 2026083513,
+        "outcome": "win",
+        "end_condition": "target destroyed",
+        "steps": 1372,
+        "target_health_loss": 1.0069542516351122,
+        "ownship_health_loss": 0.0,
+        "damage_exchange": 1.0069542516351122,
+        "gate_active_steps": 609,
+        "gate_active_rate": 0.44387755102040816,
+        "residual_abs_mean": [
+          0.2164207711668533,
+          0.11505963510165736,
+          0.19350467655541642
+        ],
+        "residual_abs_max": [
+          1.0244866609573364,
+          0.39515164494514465,
+          0.860541582107544
+        ],
+        "residual_saturation_rate": 0.007288629737609329,
+        "safety_override_steps": 1,
+        "min_altitude_m": 3001.7761656000002,
+        "wez_steps": 182
+      }
+    ]
+  }
+}

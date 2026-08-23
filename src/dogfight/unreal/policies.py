@@ -260,8 +260,11 @@ class ProviderCommandPolicy:
             self._log_csv_file = open(log_csv_path, "w", newline="", encoding="utf-8")
             self._log_csv_writer = _csv.writer(self._log_csv_file)
             self._log_csv_writer.writerow([
-                "frame_index", "own_n", "own_e", "own_alt_m", "own_roll_deg", "own_pitch_deg", "own_yaw_deg",
-                "own_speed_mps", "enemy_n", "enemy_e", "enemy_alt_m", "enemy_speed_mps",
+                "frame_index", "sim_time_s", "own_n", "own_e", "own_alt_m", "own_roll_deg", "own_pitch_deg", "own_yaw_deg",
+                "own_speed_mps", "own_vn_mps", "own_ve_mps", "own_vz_mps",
+                "enemy_n", "enemy_e", "enemy_alt_m", "enemy_speed_mps",
+                "enemy_vn_mps", "enemy_ve_mps", "enemy_vz_mps",
+                "enemy_roll_deg", "enemy_pitch_deg", "enemy_yaw_deg",
                 "distance_m", "ata_deg", "aa_deg",
                 "roll_cmd", "pitch_cmd", "yaw_cmd", "throttle_cmd",
                 # Populated by supervisory/pursuit ActionProviders through
@@ -277,6 +280,40 @@ class ProviderCommandPolicy:
                 # Euler pitch alone doesn't reflect actual climb/dive.
                 "roll_rate_degps", "pitch_rate_degps", "yaw_rate_degps",
                 "vertical_speed_mps", "flight_path_angle_deg",
+                # W2 coordinated-turn feed-forward diagnostics.  Blank for
+                # providers that do not publish these ActionResult fields.
+                "turn_pitch_feedforward", "desired_gamma_deg", "gamma_error_deg",
+                # Integrated BFM manager/guidance diagnostics (W14+).
+                "threat_ata_deg", "aim_az_deg", "aim_el_deg",
+                "los_rate_degps", "ata_rate_degps",
+                "own_yaw_rate_degps", "target_yaw_rate_degps",
+                "intercept_horizon_s", "desired_turn_rate_degps",
+                "target_throttle", "speed_error_mps",
+                "target_yaw_accel_degps2", "target_turn_stable_s",
+                "prediction_stable", "lag_pursuit_active", "lag_offset_m",
+                "world_elevation_deg", "world_elevation_rate_degps",
+                "target_climb_rate_mps",
+                "target_vertical_accel_mps2", "target_vertical_stable_s",
+                "vertical_prediction_horizon_s", "vertical_prediction_stable",
+                "vertical_bank_relief_active", "defensive_escape_active",
+                "defensive_escape_sign", "bank_reversal_active",
+                "turn_match_active",
+                "turn_match_candidate_s",
+                "vertical_alignment_active",
+                "energy_recovery_active",
+                "post_defense_conversion_active",
+                "post_defense_conversion_armed",
+                "conversion_rear_offset_m",
+                "conversion_lateral_offset_m",
+                "terminal_track_active",
+                "terminal_vertical_unload_active",
+                # W56 residual-RL diagnostics. Blank for rule-only modes.
+                "residual_gate_active", "residual_gate_block_reason",
+                "residual_raw_roll", "residual_raw_pitch", "residual_raw_throttle",
+                "residual_scaled_roll", "residual_scaled_pitch", "residual_scaled_throttle",
+                "rule_roll_cmd", "rule_pitch_cmd", "rule_yaw_cmd", "rule_throttle_cmd",
+                "provider_roll_cmd", "provider_pitch_cmd", "provider_yaw_cmd", "provider_throttle_cmd",
+                "residual_bundle_id", "residual_safety_active",
             ])
         self._prev_log_time: float | None = None
         self._prev_log_roll: float | None = None
@@ -447,13 +484,22 @@ class ProviderCommandPolicy:
             self._prev_log_yaw = own_plane.rotation.yaw
             self._prev_log_alt = own_plane.position.z
 
+            raw_residual = action_result.info.get("raw_residual", ["", "", ""])
+            scaled_residual = action_result.info.get("scaled_residual", ["", "", ""])
+            rule_action = action_result.info.get("rule_action", ["", "", "", ""])
+            provider_action = action_result.info.get("final_action", ["", "", "", ""])
+
             self._log_csv_writer.writerow([
                 context.frame_index,
+                now_t,
                 own_plane.position.x, own_plane.position.y, own_plane.position.z,
                 own_plane.rotation.roll, own_plane.rotation.pitch, own_plane.rotation.yaw,
                 own_speed,
+                own_plane.velocity.x, own_plane.velocity.y, own_plane.velocity.z,
                 enemy_plane.position.x, enemy_plane.position.y, enemy_plane.position.z,
                 target_speed,
+                enemy_plane.velocity.x, enemy_plane.velocity.y, enemy_plane.velocity.z,
+                enemy_plane.rotation.roll, enemy_plane.rotation.pitch, enemy_plane.rotation.yaw,
                 float(distance), float(ata), float(aa),
                 float(action[0]), float(action[1]), float(action[2]), float(action[3]),
                 action_result.info.get("state", ""),
@@ -463,6 +509,54 @@ class ProviderCommandPolicy:
                 action_result.info.get("target_bank", ""),
                 action_result.info.get("bank_error", ""),
                 roll_rate, pitch_rate, yaw_rate, vertical_speed, flight_path_angle,
+                action_result.info.get("turn_pitch_feedforward", ""),
+                action_result.info.get("desired_gamma", ""),
+                action_result.info.get("gamma_error", ""),
+                action_result.info.get("threat_ata", ""),
+                action_result.info.get("aim_az", ""),
+                action_result.info.get("aim_el", ""),
+                action_result.info.get("los_rate", ""),
+                action_result.info.get("ata_rate", ""),
+                action_result.info.get("own_yaw_rate", ""),
+                action_result.info.get("target_yaw_rate", ""),
+                action_result.info.get("intercept_horizon", ""),
+                action_result.info.get("desired_turn_rate", ""),
+                action_result.info.get("target_throttle", ""),
+                action_result.info.get("speed_error", ""),
+                action_result.info.get("target_yaw_accel", ""),
+                action_result.info.get("target_turn_stable_s", ""),
+                action_result.info.get("prediction_stable", ""),
+                action_result.info.get("lag_pursuit_active", ""),
+                action_result.info.get("lag_offset_m", ""),
+                action_result.info.get("world_elevation", ""),
+                action_result.info.get("world_elevation_rate", ""),
+                action_result.info.get("target_climb_rate", ""),
+                action_result.info.get("target_vertical_accel", ""),
+                action_result.info.get("target_vertical_stable_s", ""),
+                action_result.info.get("vertical_prediction_horizon", ""),
+                action_result.info.get("vertical_prediction_stable", ""),
+                action_result.info.get("vertical_bank_relief_active", ""),
+                action_result.info.get("defensive_escape_active", ""),
+                action_result.info.get("defensive_escape_sign", ""),
+                action_result.info.get("bank_reversal_active", ""),
+                action_result.info.get("turn_match_active", ""),
+                action_result.info.get("turn_match_candidate_s", ""),
+                action_result.info.get("vertical_alignment_active", ""),
+                action_result.info.get("energy_recovery_active", ""),
+                action_result.info.get("post_defense_conversion_active", ""),
+                action_result.info.get("post_defense_conversion_armed", ""),
+                action_result.info.get("conversion_rear_offset_m", ""),
+                action_result.info.get("conversion_lateral_offset_m", ""),
+                action_result.info.get("terminal_track_active", ""),
+                action_result.info.get("terminal_vertical_unload_active", ""),
+                action_result.info.get("residual_gate_active", ""),
+                action_result.info.get("residual_gate_block_reason", ""),
+                *raw_residual,
+                *scaled_residual,
+                *rule_action,
+                *provider_action,
+                action_result.info.get("bundle_id", ""),
+                action_result.info.get("safety_override_active", ""),
             ])
             self._log_csv_file.flush()
 

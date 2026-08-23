@@ -47,6 +47,18 @@ PITCH_PULSE_SEQUENCE: list[tuple[float, float, float, float, float]] = [
     (5.0, 0.0, 0.0, 0.0, 0.7),
 ]
 
+# C. Yaw/rudder authority -- W16 showed that increasing turn pull preserved
+# altitude but barely changed yaw rate while bank was already 70+ degrees.
+# Keep these pulses deliberately small and short: the purpose is to measure
+# direct yaw authority and roll coupling, not to fly a combat trajectory.
+YAW_PULSE_SEQUENCE: list[tuple[float, float, float, float, float]] = [
+    (3.0, 0.0, 0.0, 0.0, 0.7),
+    (2.0, 0.0, 0.0, 0.2, 0.7),
+    (3.0, 0.0, 0.0, 0.0, 0.7),
+    (2.0, 0.0, 0.0, -0.2, 0.7),
+    (3.0, 0.0, 0.0, 0.0, 0.7),
+]
+
 # Added 2026-08-21 (second pass over run0044/run0045, user critique): the
 # 5s +-0.5 pulses above were strong enough to be useful for a first rough
 # rate/bias measurement, but too strong for clean follow-up analysis --

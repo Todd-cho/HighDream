@@ -72,6 +72,7 @@ BANK_STEP_TEST_SEQUENCE: list[tuple[float, float]] = [
 
 @dataclass
 class W1Config:
+    controller_name: str = "w1"
     # Geometry / hand-off (unchanged from pursuit_controller.py).
     fine_ata_deg: float = 8.0
     track_ata_deg: float = 3.0
@@ -84,6 +85,26 @@ class W1Config:
     full_bank_az_deg: float = 60.0
     turn_sign_deadband_deg: float = 4.0
     turn_sign_flip_deg: float = 10.0  # P7 finding
+    # W3-only rear-hemisphere commitment gate. LOS azimuth wraps from
+    # +180deg to -180deg although the physical direction barely changes.
+    # W1/W2 interpreted that representation wrap as a real side change
+    # (run0051: +179.8deg/+45deg -> -173.6deg/-45deg). Values below 180
+    # enable the gate; 180 preserves the recorded W1/W2 behavior.
+    rear_commit_az_deg: float = 180.0
+    # Optional W6 release rule for the rear commitment.  None preserves the
+    # permanent W3/W4/W5 commitment exactly.  When enabled, keep the current
+    # turn while ATA is making progress; if the best ATA has not improved by
+    # rear_progress_deg for rear_stall_flip_s, allow one recommit toward the
+    # LOS-indicated side.  This prevents an endless same-direction orbit.
+    rear_stall_flip_s: float | None = None
+    rear_progress_deg: float = 1.0
+    # W7 trend-based recommit.  Unlike W6, this does not require LOS azimuth
+    # to cross sign: when the target is in the rear hemisphere, range is
+    # closing, and ATA has worsened across this window, reverse the committed
+    # turn once and restart the window.  None preserves W1-W6 behavior.
+    rear_trend_flip_s: float | None = None
+    rear_trend_worsen_deg: float = 3.0
+    rear_trend_min_hold_s: float = 0.0
 
     # Roll rate-cascade, values from 전술.txt's measured re-analysis:
     # rate_gain=140deg/s per unit (re-estimated from the clean short
@@ -107,6 +128,21 @@ class W1Config:
     pitch_command_limit: float = 0.30
     pitch_rate_smoothing_alpha: float = 0.25
 
+    # W2-only coordinated-turn feed-forward.  The live run0050 test proved
+    # that the roll cascade can hold 45deg bank accurately, but with the
+    # unmodified flight-path loop the aircraft only changed course by about
+    # 14deg in 10s while the target LOS crossed roughly 90deg.  A banked
+    # aircraft needs back-pressure even when desired_gamma is zero; without
+    # it the bank is merely held and does not generate useful turn rate.
+    #
+    # Keep the W1 baseline unchanged at 0.0.  --mode w2 selects -0.12 at
+    # 45deg bank, ramped quadratically from turn_pitch_bank_start_deg.  The
+    # existing gamma loop remains the final feedback path: if this feed-
+    # forward starts a climb, positive gamma error reduces/cancels the pull.
+    turn_pitch_feedforward_at_45_deg: float = 0.0
+    turn_pitch_bank_start_deg: float = 10.0
+    turn_pitch_reference_bank_deg: float = 45.0
+
     # Altitude safety backstop (unchanged spirit -- flight_path_angle based,
     # not Euler pitch, so a banked genuine dive is still caught correctly).
     dive_flight_path_floor_deg: float = -20.0
@@ -115,6 +151,32 @@ class W1Config:
 
     throttle_turn: float = 0.85
     throttle_track: float = 0.6
+    # Optional rear-hemisphere cornering throttle. None preserves W1-W8.
+    # W9 uses this to shed excess speed/radius while the target remains aft.
+    throttle_rear: float | None = None
+    # W10 relative-energy throttle schedule. None preserves W1-W9.  Reduction
+    # is continuous in both misalignment and own-minus-target speed, so a
+    # faster target immediately restores full turn throttle.
+    dynamic_throttle_min: float | None = None
+    dynamic_speed_excess_start_mps: float = 10.0
+    dynamic_speed_excess_full_mps: float = 70.0
+    dynamic_throttle_slew_per_s: float = 0.30
+    # Optional absolute-speed pressure for W11.  This prevents both aircraft
+    # accelerating together from defeating the relative-speed controller.
+    dynamic_absolute_speed_start_mps: float | None = None
+    dynamic_absolute_speed_full_mps: float = 360.0
+    # Defensive override: do not stay slow while a faster target is rapidly
+    # closing inside this range with large ATA.
+    threat_override_range_m: float = 1800.0
+    threat_override_closure_mps: float = 20.0
+    threat_override_target_advantage_mps: float = 15.0
+    # W12 dynamic intercept aim point.  Zero preserves W1-W11.  The horizon
+    # is distance / own_speed, bounded below/above, using finite-differenced
+    # target position rather than an opponent-specific fixed time.
+    intercept_horizon_max_s: float = 0.0
+    intercept_horizon_min_s: float = 0.5
+    intercept_velocity_clip_mps: float = 400.0
+    intercept_predict_vertical: bool = True
 
     # Pre-pursuit isolated validation (전술.txt's closing recommendation):
     # when True, target_bank comes from BANK_STEP_TEST_SEQUENCE instead of
@@ -133,24 +195,40 @@ class W1ControllerActionProvider(ActionProvider):
         self.cfg = config or W1Config()
         self.geometry = GeometryInfo()
         self._turn_sign = 0
+        self._rear_best_ata: float | None = None
+        self._rear_last_progress_time: float | None = None
+        self._rear_trend_samples: list[tuple[float, float, float]] = []
+        self._rear_last_flip_time: float | None = None
+        self._throttle_smoothed = self.cfg.throttle_turn
+        self._prev_target_position: np.ndarray | None = None
+        self._prev_target_time: float | None = None
         self._roll_rate_smoothed = 0.0
         self._pitch_rate_smoothed = 0.0
         self._prev_time: float | None = None
         self._prev_bank: float | None = None
         self._prev_pitch: float | None = None
         self._prev_alt: float | None = None
+        self._prev_distance: float | None = None
         self._start_time: float | None = None
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
 
     def reset(self, context: ActionContext | None = None) -> None:
         self._turn_sign = 0
+        self._rear_best_ata = None
+        self._rear_last_progress_time = None
+        self._rear_trend_samples = []
+        self._rear_last_flip_time = None
+        self._throttle_smoothed = self.cfg.throttle_turn
+        self._prev_target_position = None
+        self._prev_target_time = None
         self._roll_rate_smoothed = 0.0
         self._pitch_rate_smoothed = 0.0
         self._prev_time = None
         self._prev_bank = None
         self._prev_pitch = None
         self._prev_alt = None
+        self._prev_distance = None
         self._start_time = None
         self.state_log = []
         self.info_log = []
@@ -189,6 +267,7 @@ class W1ControllerActionProvider(ActionProvider):
 
         ata = 0.0
         distance = 0.0
+        closure_rate = 0.0
         az = el = 0.0
         if cfg.bank_step_test:
             elapsed = now - self._start_time
@@ -201,18 +280,112 @@ class W1ControllerActionProvider(ActionProvider):
                     break
             desired_gamma = 0.0  # hold flat -- isolating the roll loop only
         elif target is not None:
-            az, el = self.geometry._get_los_angle(own, target)
+            guidance_target = target
+            current_target_position = np.asarray(
+                target[StateIndex.N : StateIndex.D + 1], dtype=np.float64
+            )
+            actual_distance = float(self.geometry._get_distance(own, target))
+            if (
+                cfg.intercept_horizon_max_s > 0.0
+                and self._prev_target_position is not None
+                and self._prev_target_time is not None
+            ):
+                target_dt = now - self._prev_target_time
+                if target_dt > 1e-3:
+                    target_velocity = (
+                        current_target_position - self._prev_target_position
+                    ) / target_dt
+                    target_velocity_norm = float(np.linalg.norm(target_velocity))
+                    if target_velocity_norm > cfg.intercept_velocity_clip_mps:
+                        target_velocity *= cfg.intercept_velocity_clip_mps / target_velocity_norm
+                    if not cfg.intercept_predict_vertical:
+                        # W13: horizontal intercept only. Instantaneous live
+                        # vertical velocity is too noisy/aggressive to
+                        # extrapolate for several seconds (W12 commanded a
+                        # roughly -69deg gamma and lost over 3km altitude).
+                        target_velocity[2] = 0.0
+                    horizon = float(np.clip(
+                        actual_distance / max(speed, 1.0),
+                        cfg.intercept_horizon_min_s,
+                        cfg.intercept_horizon_max_s,
+                    ))
+                    guidance_target = np.array(target, copy=True)
+                    guidance_target[StateIndex.N : StateIndex.D + 1] = (
+                        current_target_position + target_velocity * horizon
+                    )
+                    # Live Unreal position.z and StateIndex.ALT are both
+                    # up-positive altitude; keep them consistent.
+                    if cfg.intercept_predict_vertical:
+                        guidance_target[StateIndex.ALT] = guidance_target[StateIndex.D]
+                    else:
+                        guidance_target[StateIndex.D] = target[StateIndex.D]
+                        guidance_target[StateIndex.ALT] = target[StateIndex.ALT]
+
+            az, el = self.geometry._get_los_angle(own, guidance_target)
             az, el = float(az), float(el)
-            ata = abs(float(self.geometry._get_antenna_train_angle(own, target, False)))
-            distance = float(self.geometry._get_distance(own, target))
+            ata = abs(float(self.geometry._get_antenna_train_angle(own, guidance_target, False)))
+            distance = actual_distance
+            if dt and self._prev_distance is not None:
+                closure_rate = (self._prev_distance - distance) / dt
 
             desired_sign = 1 if az >= 0.0 else -1
             if self._turn_sign == 0:
                 self._turn_sign = desired_sign
+            elif abs(az) >= cfg.rear_commit_az_deg:
+                # Keep turning through the ambiguous +180/-180 wrap.  W6 can
+                # release this commitment only after ATA has stopped making
+                # measurable progress for a configured interval.
+                if cfg.rear_trend_flip_s is not None:
+                    hold_active = (
+                        self._rear_last_flip_time is not None
+                        and now - self._rear_last_flip_time < cfg.rear_trend_min_hold_s
+                    )
+                    if hold_active:
+                        self._rear_trend_samples = []
+                    else:
+                        self._rear_trend_samples.append((now, ata, distance))
+                        cutoff = now - cfg.rear_trend_flip_s
+                        while len(self._rear_trend_samples) > 1 and self._rear_trend_samples[1][0] <= cutoff:
+                            self._rear_trend_samples.pop(0)
+                        oldest_t, oldest_ata, oldest_distance = self._rear_trend_samples[0]
+                        window_ready = now - oldest_t >= cfg.rear_trend_flip_s * 0.9
+                        ata_worsening = ata >= oldest_ata + cfg.rear_trend_worsen_deg
+                        range_closing = distance < oldest_distance
+                        if window_ready and ata_worsening and range_closing:
+                            self._turn_sign *= -1
+                            self._rear_last_flip_time = now
+                            self._rear_trend_samples = []
+                    desired_sign = self._turn_sign
+                elif desired_sign == self._turn_sign:
+                    self._rear_best_ata = None
+                    self._rear_last_progress_time = None
+                elif cfg.rear_stall_flip_s is None:
+                    desired_sign = self._turn_sign
+                else:
+                    progress = max(0.0, cfg.rear_progress_deg)
+                    if self._rear_best_ata is None or ata <= self._rear_best_ata - progress:
+                        self._rear_best_ata = ata
+                        self._rear_last_progress_time = now
+                    if self._rear_last_progress_time is None:
+                        self._rear_last_progress_time = now
+                    stalled_for = now - self._rear_last_progress_time
+                    if stalled_for >= cfg.rear_stall_flip_s:
+                        self._turn_sign = desired_sign
+                        self._rear_best_ata = None
+                        self._rear_last_progress_time = None
+                    else:
+                        desired_sign = self._turn_sign
             elif desired_sign != self._turn_sign and abs(az) >= cfg.turn_sign_flip_deg:
                 self._turn_sign = desired_sign
+                self._rear_best_ata = None
+                self._rear_last_progress_time = None
+                self._rear_trend_samples = []
             elif abs(az) <= cfg.turn_sign_deadband_deg:
                 desired_sign = self._turn_sign
+            else:
+                self._rear_best_ata = None
+                self._rear_last_progress_time = None
+                self._rear_trend_samples = []
 
             az_fraction = float(np.clip(abs(az) / cfg.full_bank_az_deg, 0.0, 1.0))
             target_bank_mag = cfg.min_turn_bank_deg + az_fraction * (cfg.max_bank_deg - cfg.min_turn_bank_deg)
@@ -224,9 +397,9 @@ class W1ControllerActionProvider(ActionProvider):
             # point the velocity vector at the target's altitude over the
             # horizontal range, per 전술.txt.
             own_n, own_e = float(own[StateIndex.N]), float(own[StateIndex.E])
-            tgt_n, tgt_e = float(target[StateIndex.N]), float(target[StateIndex.E])
+            tgt_n, tgt_e = float(guidance_target[StateIndex.N]), float(guidance_target[StateIndex.E])
             horizontal_distance = max(1.0, float(np.hypot(tgt_n - own_n, tgt_e - own_e)))
-            target_alt = float(target[StateIndex.ALT])
+            target_alt = float(guidance_target[StateIndex.ALT])
             desired_gamma = float(np.degrees(np.arctan2(target_alt - altitude, horizontal_distance)))
         else:
             target_bank = 0.0
@@ -250,8 +423,17 @@ class W1ControllerActionProvider(ActionProvider):
         # Sign is deliberately inverted: MORE nose-up needed (positive
         # desired_pitch_rate, since gamma should increase) -> NEGATIVE
         # pitch_cmd (live convention: positive=nose-down).
+        turn_pitch_feedforward = 0.0
+        if not cfg.bank_step_test and cfg.turn_pitch_feedforward_at_45_deg != 0.0:
+            bank_excess = max(0.0, abs(current_bank) - cfg.turn_pitch_bank_start_deg)
+            bank_span = max(1.0, cfg.turn_pitch_reference_bank_deg - cfg.turn_pitch_bank_start_deg)
+            bank_fraction = float(np.clip(bank_excess / bank_span, 0.0, 1.0))
+            turn_pitch_feedforward = cfg.turn_pitch_feedforward_at_45_deg * bank_fraction ** 2
+
         pitch_cmd = float(np.clip(
-            cfg.pitch_attitude_trim - desired_pitch_rate / cfg.pitch_rate_gain_degps_per_unit,
+            cfg.pitch_attitude_trim
+            + turn_pitch_feedforward
+            - desired_pitch_rate / cfg.pitch_rate_gain_degps_per_unit,
             -cfg.pitch_command_limit, cfg.pitch_command_limit,
         ))
 
@@ -275,7 +457,63 @@ class W1ControllerActionProvider(ActionProvider):
             throttle = cfg.throttle_track
         else:
             state = "turn_pursuit"
-            throttle = cfg.throttle_turn
+            if cfg.dynamic_throttle_min is not None and target is not None:
+                target_speed = float(target[StateIndex.KCAS])
+                speed_excess = speed - target_speed
+                speed_span = max(
+                    1.0,
+                    cfg.dynamic_speed_excess_full_mps - cfg.dynamic_speed_excess_start_mps,
+                )
+                speed_pressure = float(np.clip(
+                    (speed_excess - cfg.dynamic_speed_excess_start_mps) / speed_span,
+                    0.0,
+                    1.0,
+                ))
+                absolute_pressure = 0.0
+                if cfg.dynamic_absolute_speed_start_mps is not None:
+                    absolute_span = max(
+                        1.0,
+                        cfg.dynamic_absolute_speed_full_mps - cfg.dynamic_absolute_speed_start_mps,
+                    )
+                    absolute_pressure = float(np.clip(
+                        (speed - cfg.dynamic_absolute_speed_start_mps) / absolute_span,
+                        0.0,
+                        1.0,
+                    ))
+                # No hard rear-angle switch: ramp from zero reduction at
+                # ATA=60deg to full authority at ATA=120deg.
+                misalignment = float(np.clip((ata - 60.0) / 60.0, 0.0, 1.0))
+                energy_pressure = max(speed_pressure, absolute_pressure)
+                target_throttle = cfg.throttle_turn - (
+                    cfg.throttle_turn - cfg.dynamic_throttle_min
+                ) * energy_pressure * misalignment
+                target_faster = target_speed - speed >= cfg.threat_override_target_advantage_mps
+                immediate_threat = (
+                    ata >= 90.0
+                    and distance <= cfg.threat_override_range_m
+                    and closure_rate >= cfg.threat_override_closure_mps
+                    and target_faster
+                )
+                if immediate_threat:
+                    target_throttle = cfg.throttle_turn
+                if dt is None:
+                    self._throttle_smoothed = target_throttle
+                else:
+                    max_step = cfg.dynamic_throttle_slew_per_s * dt
+                    self._throttle_smoothed += float(np.clip(
+                        target_throttle - self._throttle_smoothed,
+                        -max_step,
+                        max_step,
+                    ))
+                throttle = float(np.clip(
+                    self._throttle_smoothed,
+                    cfg.dynamic_throttle_min,
+                    cfg.throttle_turn,
+                ))
+            elif cfg.throttle_rear is not None and ata >= cfg.rear_commit_az_deg:
+                throttle = cfg.throttle_rear
+            else:
+                throttle = cfg.throttle_turn
 
         action = np.clip(
             np.array([roll_cmd, pitch_cmd, 0.0, throttle], dtype=np.float32),
@@ -286,17 +524,27 @@ class W1ControllerActionProvider(ActionProvider):
         self._prev_bank = current_bank
         self._prev_pitch = current_pitch
         self._prev_alt = altitude
+        self._prev_distance = distance if target is not None else None
+        if target is not None:
+            self._prev_target_position = np.asarray(
+                target[StateIndex.N : StateIndex.D + 1], dtype=np.float64
+            ).copy()
+            self._prev_target_time = now
+        else:
+            self._prev_target_position = None
+            self._prev_target_time = None
 
         self.state_log.append(state)
         info = {
-            "state": state, "ata": ata, "distance": distance,
+            "state": state, "ata": ata, "distance": distance, "closure_rate": closure_rate,
             "los_az": az, "los_el": el,
             "target_bank": target_bank, "current_bank": current_bank, "bank_error": bank_error,
             "desired_roll_rate": desired_roll_rate, "measured_roll_rate": self._roll_rate_smoothed,
             "desired_gamma": desired_gamma, "flight_path_angle": flight_path_angle, "gamma_error": gamma_error,
             "desired_pitch_rate": desired_pitch_rate, "measured_pitch_rate": self._pitch_rate_smoothed,
+            "turn_pitch_feedforward": turn_pitch_feedforward,
             "own_pitch": current_pitch, "own_alt": altitude, "vertical_speed": vertical_speed,
             "roll_cmd": roll_cmd, "pitch_cmd": pitch_cmd,
         }
         self.info_log.append(info)
-        return ActionResult(action=action, source=f"w1[{state}]", confidence=1.0, info=info)
+        return ActionResult(action=action, source=f"{cfg.controller_name}[{state}]", confidence=1.0, info=info)
