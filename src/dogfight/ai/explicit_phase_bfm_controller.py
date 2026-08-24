@@ -163,3 +163,69 @@ class ExplicitPhaseBFMControllerV2(ExplicitPhaseBFMController):
             confidence=observed.confidence,
             info=info,
         )
+
+
+class ExplicitPhaseBFMControllerV3(ExplicitPhaseBFMControllerV2):
+    """EP3: moderate roll-compatible opening pull on top of corrected EP2.
+
+    W112's fixed -0.82 pulse improved only the first second and then slowed
+    roll buildup.  EP3 fills only the weak portion of the quadratic bank gate:
+    it ramps from -0.38 to -0.62 while bank grows from 30 to 60 degrees, and
+    relinquishes pitch as soon as the legacy scheduler is already stronger.
+    """
+
+    def __init__(self, legacy: ActionProvider) -> None:
+        super().__init__(legacy)
+        self.name = "ep3"
+        self._opening_start_time: float | None = None
+
+    def reset(self, context: ActionContext | None = None) -> None:
+        super().reset(context)
+        self._opening_start_time = None
+
+    def compute_action(self, context: ActionContext) -> ActionResult:
+        result = super().compute_action(context)
+        info = dict(result.info)
+        now = (
+            float(context.ownship_state[StateIndex.SIM_TIME])
+            if context.ownship_state is not None else 0.0
+        )
+        if self._opening_start_time is None:
+            self._opening_start_time = now
+        elapsed = now - self._opening_start_time
+        bank = abs(float(info.get("current_bank", 0.0)))
+        ata = float(info.get("ata", 0.0))
+        own_speed = (
+            float(context.ownship_state[StateIndex.KCAS])
+            if context.ownship_state is not None else 0.0
+        )
+        active = (
+            info.get("engagement_phase") == "opening_merge"
+            and not bool(info.get("first_merge_passed", False))
+            and elapsed <= 4.0
+            and 30.0 <= bank <= 60.0
+            and ata >= 80.0
+            and own_speed >= 180.0
+        )
+        action = np.asarray(result.action, dtype=np.float32).copy()
+        scheduled_pitch = 0.0
+        if active:
+            fraction = float(np.clip((bank - 30.0) / 30.0, 0.0, 1.0))
+            scheduled_pitch = -(0.38 + 0.24 * fraction)
+            # Negative pitch is the measured pull direction. Only fill missing
+            # pull authority; never weaken a stronger legacy command.
+            action[1] = min(float(action[1]), scheduled_pitch)
+            info.update({
+                "pitch_owner": "ep3_opening_pull_fill",
+                "pitch_authority": 1.0,
+            })
+        info.update({
+            "explicit_opening_pull_active": active,
+            "explicit_opening_pull_cmd": scheduled_pitch,
+        })
+        return ActionResult(
+            action=action,
+            source=f"ep3<{result.source}>",
+            confidence=result.confidence,
+            info=info,
+        )

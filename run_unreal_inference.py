@@ -49,6 +49,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w113")
     parser._option_string_actions["--mode"].choices.append("ep1")
     parser._option_string_actions["--mode"].choices.append("ep2")
+    parser._option_string_actions["--mode"].choices.append("ep3")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -268,6 +269,12 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "ep3":
+        from dogfight.ai.explicit_phase_bfm_controller import ExplicitPhaseBFMControllerV3
+        base_args = copy.copy(args)
+        base_args.mode = "w111"
+        return ExplicitPhaseBFMControllerV3(build_action_provider(base_args))
 
     if requested_mode == "ep2":
         from dogfight.ai.explicit_phase_bfm_controller import ExplicitPhaseBFMControllerV2
