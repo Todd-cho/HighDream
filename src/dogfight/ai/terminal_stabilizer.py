@@ -12,6 +12,7 @@ import numpy as np
 
 from GeoMathUtil import GeometryInfo
 from dogfight.ai.action_provider import ActionContext, ActionProvider, ActionResult, clip_action
+from dogfight.sim.state_schema import StateIndex
 
 
 @dataclass
@@ -30,6 +31,14 @@ class TerminalStabilizerConfig:
     max_delta_pitch: float = 0.24
     max_delta_yaw: float = 0.20
     terminal_throttle_floor: float = 0.72
+    precision_blend: float = 0.72
+    precision_full_ata_deg: float = 8.0
+    az_norm_deg: float = 7.0
+    el_norm_deg: float = 6.0
+    rate_norm_degps: float = 24.0
+    az_rate_gain: float = 0.20
+    el_rate_gain: float = 0.16
+    los_rate_alpha: float = 0.32
 
 
 class TerminalStabilizerActionProvider(ActionProvider):
@@ -39,11 +48,21 @@ class TerminalStabilizerActionProvider(ActionProvider):
         self.geometry = GeometryInfo()
         self._active = False
         self._previous: np.ndarray | None = None
+        self._previous_time: float | None = None
+        self._previous_az: float | None = None
+        self._previous_el: float | None = None
+        self._az_rate = 0.0
+        self._el_rate = 0.0
 
     def reset(self, context: ActionContext | None = None) -> None:
         self.inner.reset(context)
         self._active = False
         self._previous = None
+        self._previous_time = None
+        self._previous_az = None
+        self._previous_el = None
+        self._az_rate = 0.0
+        self._el_rate = 0.0
 
     def close(self) -> None:
         self.inner.close()
@@ -59,6 +78,21 @@ class TerminalStabilizerActionProvider(ActionProvider):
 
         distance = float(self.geometry._get_distance(own, target))
         ata = abs(float(self.geometry._get_antenna_train_angle(own, target, False)))
+        az, el = self.geometry._get_los_angle(own, target)
+        az, el = float(az), float(el)
+        now = float(own[StateIndex.SIM_TIME])
+        if self._previous_time is not None and self._previous_az is not None:
+            dt = now - self._previous_time
+            if dt > 1e-3:
+                az_delta = ((az - self._previous_az + 180.0) % 360.0) - 180.0
+                raw_az_rate = az_delta / dt
+                raw_el_rate = (el - self._previous_el) / dt
+                alpha_rate = self.cfg.los_rate_alpha
+                self._az_rate = alpha_rate * raw_az_rate + (1.0 - alpha_rate) * self._az_rate
+                self._el_rate = alpha_rate * raw_el_rate + (1.0 - alpha_rate) * self._el_rate
+        self._previous_time = now
+        self._previous_az = az
+        self._previous_el = el
         if self._active:
             self._active = ata < self.cfg.exit_ata_deg and distance < self.cfg.exit_distance_m
         else:
@@ -75,7 +109,36 @@ class TerminalStabilizerActionProvider(ActionProvider):
                 info={**result.info, "terminal_stabilizer_active": False, "ata": ata, "distance": distance},
             )
 
-        limited = raw.copy()
+        # Actual LOS PD loop.  Unlike the old tactical wrapper this does not
+        # invent a lead/lag aim point or select a manoeuvre.  It only drives
+        # the measured body-frame LOS error and its rate toward zero after RL
+        # has acquired the target.
+        precision = raw.copy()
+        precision[0] = float(np.clip(
+            az / self.cfg.az_norm_deg
+            + self.cfg.az_rate_gain * self._az_rate / self.cfg.rate_norm_degps,
+            -self.cfg.roll_limit, self.cfg.roll_limit,
+        ))
+        # Live convention: negative pitch command pulls the nose up.
+        precision[1] = float(np.clip(
+            -el / self.cfg.el_norm_deg
+            - self.cfg.el_rate_gain * self._el_rate / self.cfg.rate_norm_degps,
+            -self.cfg.pitch_limit, self.cfg.pitch_limit,
+        ))
+        precision[2] = float(np.clip(
+            0.55 * az / self.cfg.az_norm_deg
+            + 0.10 * self._az_rate / self.cfg.rate_norm_degps,
+            -self.cfg.yaw_limit, self.cfg.yaw_limit,
+        ))
+        # Gradually give the precision loop authority, reaching the configured
+        # blend by 8deg.  This avoids a discontinuity at the 22deg entry gate.
+        convergence = float(np.clip(
+            (self.cfg.enter_ata_deg - ata)
+            / max(1e-3, self.cfg.enter_ata_deg - self.cfg.precision_full_ata_deg),
+            0.0, 1.0,
+        ))
+        precision_weight = self.cfg.precision_blend * convergence
+        limited = (1.0 - precision_weight) * raw + precision_weight * precision
         limits = np.asarray(
             [self.cfg.roll_limit, self.cfg.pitch_limit, self.cfg.yaw_limit], dtype=np.float32
         )
@@ -96,7 +159,17 @@ class TerminalStabilizerActionProvider(ActionProvider):
             action=limited,
             source="terminal_stabilizer[terminal]",
             confidence=result.confidence,
-            info={**result.info, "terminal_stabilizer_active": True, "ata": ata, "distance": distance},
+            info={
+                **result.info,
+                "terminal_stabilizer_active": True,
+                "terminal_precision_weight": precision_weight,
+                "terminal_los_az_deg": az,
+                "terminal_los_el_deg": el,
+                "terminal_los_az_rate_degps": self._az_rate,
+                "terminal_los_el_rate_degps": self._el_rate,
+                "ata": ata,
+                "distance": distance,
+            },
         )
 
 
