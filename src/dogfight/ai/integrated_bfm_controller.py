@@ -530,6 +530,9 @@ class IntegratedBFMConfig:
     closure_target_near_mps: float = 20.0
     closure_throttle_base: float = 0.50
     closure_throttle_gain: float = 0.0
+    # Disabled by default to preserve every historical controller. A finite
+    # value is an experiment-specific guard on (closure-desired_closure).
+    closure_throttle_error_limit_mps: float = float("inf")
     minimum_energy_speed_mps: float = 0.0
     minimum_energy_throttle: float = 0.0
 
@@ -2899,7 +2902,10 @@ class IntegratedBFMController(ActionProvider):
             # throttle sat at 0), bleeding the turn-rate margin the rest of
             # the engagement never recovered. Clamp the error term so the
             # correction cannot exceed roughly the base value.
-            closure_error = float(np.clip(closure - desired_closure, -80.0, 80.0))
+            closure_error = closure - desired_closure
+            if math.isfinite(cfg.closure_throttle_error_limit_mps):
+                limit = max(0.0, cfg.closure_throttle_error_limit_mps)
+                closure_error = float(np.clip(closure_error, -limit, limit))
             target_throttle = (
                 cfg.closure_throttle_base
                 - cfg.closure_throttle_gain * closure_error

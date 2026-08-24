@@ -472,9 +472,18 @@ class TacticalWrapperActionProvider(ActionProvider):
             rule_action = rule_action.copy()
             rule_action[0] *= cfg.weapons_track_command_scale
             rule_action[1] *= cfg.weapons_track_command_scale
+            # BUG FIX (2026-08-24, code review): distance term's sign was
+            # inverted relative to its own design comment ("throttle: closure를
+            # 줄이도록 조절" -- back off when closing too fast, add throttle
+            # back when drifting out past the target distance). The original
+            # `-gain*(distance-target)/target` cut throttle when ALREADY
+            # farther than target (accelerating the drift-out) and added
+            # throttle when too close (accelerating overshoot) -- exactly
+            # backwards. Flipped to `+gain*...` so distance>target increases
+            # throttle (close back in) and distance<target decreases it.
             rule_action[3] = float(np.clip(
                 cfg.weapons_track_throttle_base
-                - cfg.weapons_track_throttle_closure_gain
+                + cfg.weapons_track_throttle_closure_gain
                 * (distance - cfg.weapons_track_target_distance_m) / max(1.0, cfg.weapons_track_target_distance_m)
                 - cfg.weapons_track_throttle_closure_gain * closure_rate / 100.0,
                 cfg.weapons_track_throttle_min, cfg.weapons_track_throttle_max,
@@ -715,11 +724,20 @@ class TacticalWrapperActionProvider(ActionProvider):
         self._smoothed_az_rate = alpha * raw_az_rate + (1.0 - alpha) * self._smoothed_az_rate
         self._smoothed_el_rate = alpha * raw_el_rate + (1.0 - alpha) * self._smoothed_el_rate
 
-        in_fine_track = abs(az) < cfg.fine_track_threshold_deg or abs(el) < cfg.fine_track_threshold_deg
-        los_rate_gain = cfg.los_rate_gain_fine if in_fine_track else cfg.los_rate_gain_coarse
+        # BUG FIX (2026-08-24, code review): los_rate_gain used to be a single
+        # value keyed on EITHER axis being in fine-track range, then applied
+        # to BOTH the roll (az) and pitch (el) rate terms. A common case is
+        # one axis converged while the other is still 30-90deg out (e.g.
+        # az~2deg, el~40deg mid-merge) -- that pinned the still-far axis to
+        # the ~4.7x stronger fine gain too, injecting an oversized derivative
+        # term into an axis that hadn't actually converged and contributing
+        # to the roll/pitch overshoot seen in live logs. Each axis now keys
+        # its own gain off its own convergence.
+        az_rate_gain = cfg.los_rate_gain_fine if abs(az) < cfg.fine_track_threshold_deg else cfg.los_rate_gain_coarse
+        el_rate_gain = cfg.los_rate_gain_fine if abs(el) < cfg.fine_track_threshold_deg else cfg.los_rate_gain_coarse
 
         roll_cmd_raw = float(np.clip(
-            cfg.roll_gain * az / roll_norm + los_rate_gain * self._smoothed_az_rate / cfg.los_rate_norm_degps,
+            cfg.roll_gain * az / roll_norm + az_rate_gain * self._smoothed_az_rate / cfg.los_rate_norm_degps,
             -1.0, 1.0,
         ))
 
@@ -772,7 +790,7 @@ class TacticalWrapperActionProvider(ActionProvider):
         # _apply_safety_override docstring) -- positive el (target above) must
         # command negative pitch_cmd (pull up).
         pitch_cmd = float(np.clip(
-            -cfg.pitch_gain * el / pitch_norm - los_rate_gain * self._smoothed_el_rate / cfg.los_rate_norm_degps,
+            -cfg.pitch_gain * el / pitch_norm - el_rate_gain * self._smoothed_el_rate / cfg.los_rate_norm_degps,
             -1.0, 1.0,
         ))
         yaw_cmd = float(np.clip(cfg.yaw_gain * az / cfg.roll_norm_deg, -1.0, 1.0))

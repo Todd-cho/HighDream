@@ -39,6 +39,9 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w103")
     parser._option_string_actions["--mode"].choices.append("w104")
     parser._option_string_actions["--mode"].choices.append("w105")
+    parser._option_string_actions["--mode"].choices.append("w106")
+    parser._option_string_actions["--mode"].choices.append("w103rl")
+    parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
         "--pulse-sequence",
         choices=["roll", "pitch", "pitch_trim", "roll_inertia", "yaw"],
@@ -257,6 +260,31 @@ def build_action_provider(args):
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
 
+    if requested_mode in ("w100rl", "w103rl"):
+        if args.bundle_dir is None:
+            raise ValueError(f"--bundle-dir is required for {requested_mode} mode")
+        from dogfight.ai.w56_residual_action_provider import W56ResidualActionProvider
+        base_args = copy.copy(args)
+        base_args.mode = "w100" if requested_mode == "w100rl" else "w103"
+        base_rule = build_action_provider(base_args)
+        return W56ResidualActionProvider(
+            bundle_dir=args.bundle_dir,
+            algorithm_factory=build_algorithm_from_bundle,
+            policy_id=args.policy_id,
+            roll_scale=0.10,
+            pitch_scale=0.15,
+            throttle_scale=0.08,
+            # The old 20deg/3000m/threat>=40 gate was active for exactly
+            # zero seconds during the actual live gun windows in run0182 and
+            # run0189. Restrict RL to the real gun cone instead, but permit it
+            # to refine mutual-aspect shots rather than silently disabling it.
+            gate_ata_deg=10.0,
+            gate_range_m=1500.0,
+            gate_min_threat_ata_deg=0.0,
+            force_zero_residual=args.w56rl_zero_residual,
+            rule_provider=base_rule,
+        )
+
     if requested_mode == "w97rl":
         if args.bundle_dir is None:
             raise ValueError("--bundle-dir is required for w97rl mode")
@@ -310,7 +338,7 @@ def build_action_provider(args):
             force_zero_residual=args.w56rl_zero_residual,
         )
 
-    if requested_mode in ("w102", "w103", "w104", "w105"):
+    if requested_mode in ("w102", "w103", "w104", "w105", "w106"):
         args.mode = "w53"
     if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101"):
         # New predictive branch starts from the proven W53 attack geometry,
@@ -497,7 +525,7 @@ def build_action_provider(args):
                     0.90 if args.mode in ("w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56") else 0.0
                 ),
             ))
-            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105"):
+            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105", "w106"):
                 controller.cfg.controller_name = requested_mode
                 controller.cfg.predictive_guidance_enabled = True
                 controller.cfg.predictive_guidance_min_ata_deg = 20.0
@@ -642,7 +670,7 @@ def build_action_provider(args):
                 controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
                 controller.cfg.lag_pursuit_energy_throttle_base = 0.55
                 controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
-            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105"):
+            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105", "w106"):
                 # Research VPP controller: W88 energy preservation with
                 # continuous lag-to-pure blending and a real gun-WEZ defense.
                 controller.cfg.controller_name = requested_mode
@@ -694,7 +722,7 @@ def build_action_provider(args):
                     controller.cfg.formula_vpp_enabled = True
                     controller.cfg.lag_pursuit_offset_max_m = 0.0
                     controller.cfg.terminal_track_min_threat_ata_deg = 30.0
-                if requested_mode in ("w102", "w103", "w104", "w105"):
+                if requested_mode in ("w102", "w103", "w104", "w105", "w106"):
                     # W100 plus horizontal turn-circle and CPA pursuit-state
                     # transitions. Preserve W100's proven vertical loop.
                     controller.cfg.attack_conversion_enabled = True
@@ -706,7 +734,7 @@ def build_action_provider(args):
                     controller.cfg.formula_vpp_lag_distance_m = 650.0
                     controller.cfg.formula_vpp_mutual_lateral_m = 450.0
                     controller.cfg.terminal_track_min_threat_ata_deg = 30.0
-                if requested_mode in ("w103", "w104", "w105"):
+                if requested_mode in ("w103", "w104", "w105", "w106"):
                     controller.cfg.formula_vpp_recommit_enabled = True
                     controller.cfg.formula_vpp_recommit_hold_s = 1.8
                     controller.cfg.formula_vpp_recommit_arm_s = 8.0
@@ -754,6 +782,12 @@ def build_action_provider(args):
                     # change only the live-measured energy target.
                     controller.cfg.high_bank_target_speed_mps = 220.0
                     controller.cfg.lag_pursuit_energy_target_speed_mps = 220.0
+                if requested_mode == "w106":
+                    # Single-variable W103 experiment: preserve its exact
+                    # geometry and 195m/s energy schedule, changing only the
+                    # excessive closure-throttle correction identified in
+                    # run0193. This must never leak into historical W103.
+                    controller.cfg.closure_throttle_error_limit_mps = 80.0
             if requested_mode in ("w90", "w91", "w92", "w93", "w95", "w96", "w97", "w99"):
                 # W89 plus a one-second, trajectory-weighted min-max
                 # predictor derived from differential-game research.
