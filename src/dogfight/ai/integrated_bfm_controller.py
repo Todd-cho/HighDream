@@ -146,6 +146,12 @@ class IntegratedBFMConfig:
     lift_vector_gamma_horizon_s: float = 0.7
     lift_vector_blend: float = 0.75
     lift_vector_defensive_blend: float = 1.0
+    lift_vector_activation_delay_s: float = 0.0
+    lift_vector_bank_tau_s: float = 0.0
+    lift_vector_gamma_tau_s: float = 0.0
+    lift_vector_bank_slew_degps: float = 1.0e9
+    lift_vector_sign_hold_s: float = 0.0
+    lift_vector_sign_min_bank_deg: float = 10.0
     # Preserve lag while radial closure is still high.  ATA-only tapering can
     # collapse the offset exactly when geometry needs a longer flight path to
     # avoid an overshoot.  Optional throttle support preserves airspeed while
@@ -194,6 +200,7 @@ class IntegratedBFMConfig:
     terminal_track_prelock_ata_deg: float = 0.0
     terminal_track_prelock_range_m: float = 0.0
     terminal_track_min_threat_ata_deg: float = 0.0
+    terminal_track_max_aspect_deg: float = 180.0
     terminal_track_yaw_rate_gain: float = 0.7
     terminal_track_course_gain: float = 1.2
     terminal_track_los_rate_gain: float = 0.4
@@ -258,6 +265,7 @@ class IntegratedBFMConfig:
     attack_conversion_enabled: bool = False
     attack_conversion_max_ata_deg: float = 22.0
     attack_conversion_min_threat_ata_deg: float = 35.0
+    attack_conversion_max_aspect_deg: float = 180.0
     attack_conversion_min_range_m: float = 1800.0
     attack_conversion_max_range_m: float = 4000.0
     attack_conversion_target_rate_gain: float = 1.0
@@ -645,6 +653,11 @@ class IntegratedBFMController(ActionProvider):
         self._advantage_manager_reason = "disabled"
         self._advantage_attack_until = 0.0
         self._lag_pursuit_scale = 1.0
+        self._lift_vector_bank = 0.0
+        self._lift_vector_gamma = 0.0
+        self._lift_vector_sign = 1
+        self._lift_vector_sign_until = 0.0
+        self._lift_vector_was_active = False
         self._throttle = self.cfg.throttle_merge
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
@@ -1183,6 +1196,7 @@ class IntegratedBFMController(ActionProvider):
                 if (
                     ata >= cfg.terminal_track_exit_ata_deg
                     or distance >= cfg.terminal_track_exit_range_m
+                    or aa > cfg.terminal_track_max_aspect_deg
                     or (
                         threat_ata < 0.5 * cfg.terminal_track_min_threat_ata_deg
                         and not mutual_commit_candidate
@@ -1202,6 +1216,8 @@ class IntegratedBFMController(ActionProvider):
             ) and (
                 threat_ata >= cfg.terminal_track_min_threat_ata_deg
                 or mutual_commit_candidate
+            ) and (
+                aa <= cfg.terminal_track_max_aspect_deg
             ) and (
                 not cfg.advantage_manager_enabled
                 or self._advantage_ttc >= cfg.advantage_min_attack_ttc_s
@@ -1231,6 +1247,7 @@ class IntegratedBFMController(ActionProvider):
             and state != "defensive"
             and ata <= cfg.attack_conversion_max_ata_deg
             and threat_ata >= cfg.attack_conversion_min_threat_ata_deg
+            and aa <= cfg.attack_conversion_max_aspect_deg
             and cfg.attack_conversion_min_range_m <= distance
             <= cfg.attack_conversion_max_range_m
         )
@@ -2462,6 +2479,7 @@ class IntegratedBFMController(ActionProvider):
         # current target motion instead of independent azimuth/altitude rules.
         lift_vector_active = (
             cfg.lift_vector_guidance_enabled
+            and elapsed >= cfg.lift_vector_activation_delay_s
             and cfg.lift_vector_min_range_m <= distance
             <= cfg.lift_vector_max_range_m
             and ata <= cfg.lift_vector_max_ata_deg
@@ -2550,6 +2568,72 @@ class IntegratedBFMController(ActionProvider):
                 float(np.linalg.norm(los_dot_lv))
             )
             lift_vector_accel = accel_norm_lv
+            raw_lift_bank = lift_vector_target_bank
+            raw_lift_gamma = lift_vector_target_gamma
+            if not self._lift_vector_was_active:
+                self._lift_vector_bank = bank
+                self._lift_vector_gamma = current_gamma_lv
+                if abs(raw_lift_bank) >= cfg.lift_vector_sign_min_bank_deg:
+                    self._lift_vector_sign = signed_unit(raw_lift_bank)
+                self._lift_vector_sign_until = (
+                    now + cfg.lift_vector_sign_hold_s
+                )
+            requested_sign = signed_unit(
+                raw_lift_bank, self._lift_vector_sign
+            )
+            if (
+                abs(raw_lift_bank) >= cfg.lift_vector_sign_min_bank_deg
+                and requested_sign != self._lift_vector_sign
+            ):
+                if now >= self._lift_vector_sign_until:
+                    self._lift_vector_sign = requested_sign
+                    self._lift_vector_sign_until = (
+                        now + cfg.lift_vector_sign_hold_s
+                    )
+                else:
+                    raw_lift_bank = (
+                        self._lift_vector_sign * abs(raw_lift_bank)
+                    )
+            if dt and cfg.lift_vector_bank_tau_s > 0.0:
+                bank_alpha_lv = 1.0 - math.exp(
+                    -dt / cfg.lift_vector_bank_tau_s
+                )
+            else:
+                bank_alpha_lv = 1.0
+            filtered_bank_lv = self._lift_vector_bank + bank_alpha_lv * (
+                raw_lift_bank - self._lift_vector_bank
+            )
+            if dt and cfg.lift_vector_bank_slew_degps < 1.0e8:
+                bank_step_lv = cfg.lift_vector_bank_slew_degps * dt
+                filtered_bank_lv = self._lift_vector_bank + float(np.clip(
+                    filtered_bank_lv - self._lift_vector_bank,
+                    -bank_step_lv,
+                    bank_step_lv,
+                ))
+            if dt and cfg.lift_vector_gamma_tau_s > 0.0:
+                gamma_alpha_lv = 1.0 - math.exp(
+                    -dt / cfg.lift_vector_gamma_tau_s
+                )
+            else:
+                gamma_alpha_lv = 1.0
+            self._lift_vector_bank = float(np.clip(
+                filtered_bank_lv,
+                -cfg.lift_vector_bank_limit_deg,
+                cfg.lift_vector_bank_limit_deg,
+            ))
+            self._lift_vector_gamma += gamma_alpha_lv * (
+                raw_lift_gamma - self._lift_vector_gamma
+            )
+            self._lift_vector_gamma = float(np.clip(
+                self._lift_vector_gamma,
+                -cfg.lift_vector_gamma_limit_deg,
+                cfg.lift_vector_gamma_limit_deg,
+            ))
+            lift_vector_target_bank = self._lift_vector_bank
+            lift_vector_target_gamma = self._lift_vector_gamma
+            self._lift_vector_was_active = True
+        else:
+            self._lift_vector_was_active = False
 
         # Convert desired horizontal course rate to coordinated bank demand.
         bank_from_rate = math.degrees(math.atan2(
