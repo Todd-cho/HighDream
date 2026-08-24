@@ -147,6 +147,14 @@ def parse_args():
         ),
     )
     parser.add_argument(
+        "--terminal-stabilizer",
+        action="store_true",
+        help=(
+            "Keep the RL policy in control during acquisition and apply only "
+            "close-range axis/throttle stabilization after ATA<=22deg."
+        ),
+    )
+    parser.add_argument(
         "--pursuit-controller",
         action="store_true",
         help=(
@@ -2380,8 +2388,14 @@ def build_action_provider(args):
     )
 
     if args.mode == "rl":
-        if args.tactical_wrapper and args.pursuit_controller:
-            raise ValueError("--tactical-wrapper and --pursuit-controller are mutually exclusive")
+        supervisor_count = sum(
+            bool(value)
+            for value in (args.tactical_wrapper, args.pursuit_controller, args.terminal_stabilizer)
+        )
+        if supervisor_count > 1:
+            raise ValueError(
+                "--tactical-wrapper, --pursuit-controller, and --terminal-stabilizer are mutually exclusive"
+            )
         if args.pursuit_controller:
             from dogfight.ai.pursuit_controller import (
                 PursuitControllerActionProvider,
@@ -2397,6 +2411,12 @@ def build_action_provider(args):
         if args.tactical_wrapper:
             from dogfight.ai.tactical_wrapper import TacticalWrapperActionProvider, TacticalWrapperConfig
             return TacticalWrapperActionProvider(rl_provider, TacticalWrapperConfig())
+        if args.terminal_stabilizer:
+            from dogfight.ai.terminal_stabilizer import (
+                TerminalStabilizerActionProvider,
+                TerminalStabilizerConfig,
+            )
+            return TerminalStabilizerActionProvider(rl_provider, TerminalStabilizerConfig())
         return rl_provider
 
     bt_provider = BTActionProvider(dll_name=args.bt_dll)
