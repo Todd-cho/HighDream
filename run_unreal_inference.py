@@ -41,6 +41,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w105")
     parser._option_string_actions["--mode"].choices.append("w106")
     parser._option_string_actions["--mode"].choices.append("w107")
+    parser._option_string_actions["--mode"].choices.append("w108")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -341,7 +342,7 @@ def build_action_provider(args):
 
     if requested_mode in ("w102", "w103", "w104", "w105", "w106"):
         args.mode = "w53"
-    if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w107"):
+    if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w107", "w108"):
         # New predictive branch starts from the proven W53 attack geometry,
         # not from the stability-oriented W56/W69 family.
         args.mode = "w53"
@@ -526,7 +527,7 @@ def build_action_provider(args):
                     0.90 if args.mode in ("w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56") else 0.0
                 ),
             ))
-            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107"):
+            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107", "w108"):
                 controller.cfg.controller_name = requested_mode
                 controller.cfg.predictive_guidance_enabled = True
                 controller.cfg.predictive_guidance_min_ata_deg = 20.0
@@ -671,7 +672,7 @@ def build_action_provider(args):
                 controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
                 controller.cfg.lag_pursuit_energy_throttle_base = 0.55
                 controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
-            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107"):
+            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107", "w108"):
                 # Research VPP controller: W88 energy preservation with
                 # continuous lag-to-pure blending and a real gun-WEZ defense.
                 controller.cfg.controller_name = requested_mode
@@ -735,6 +736,25 @@ def build_action_provider(args):
                     controller.cfg.headon_deconflict_min_closure_mps = 80.0
                     controller.cfg.headon_deconflict_lateral_offset_m = 1100.0
                     controller.cfg.headon_deconflict_gamma_deg = 10.0
+                if requested_mode == "w108":
+                    # Preserve W100 outside the close fight. Inside 3 km,
+                    # derive both bank and flight-path targets from one 3-D
+                    # LOS/LOS-rate acceleration vector. No W107 virtual
+                    # lateral point and no residual RL are involved.
+                    controller.cfg.attack_conversion_enabled = True
+                    controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                    controller.cfg.lift_vector_guidance_enabled = True
+                    controller.cfg.lift_vector_min_range_m = 150.0
+                    controller.cfg.lift_vector_max_range_m = 3000.0
+                    controller.cfg.lift_vector_max_ata_deg = 150.0
+                    controller.cfg.lift_vector_los_kp_g = 3.0
+                    controller.cfg.lift_vector_los_rate_gain = 1.2
+                    controller.cfg.lift_vector_max_accel_mps2 = 35.0
+                    controller.cfg.lift_vector_bank_limit_deg = 72.0
+                    controller.cfg.lift_vector_gamma_limit_deg = 20.0
+                    controller.cfg.lift_vector_gamma_horizon_s = 0.7
+                    controller.cfg.lift_vector_blend = 0.75
+                    controller.cfg.lift_vector_defensive_blend = 1.0
                 if requested_mode == "w101":
                     controller.cfg.attack_conversion_enabled = True
                     controller.cfg.formula_vpp_enabled = True

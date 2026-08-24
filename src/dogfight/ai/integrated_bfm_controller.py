@@ -130,6 +130,22 @@ class IntegratedBFMConfig:
     headon_deconflict_min_closure_mps: float = 80.0
     headon_deconflict_lateral_offset_m: float = 1000.0
     headon_deconflict_gamma_deg: float = 10.0
+    # Coupled 3-D LOS/lift-vector outer loop.  This computes one normal
+    # acceleration vector from the newest relative position and velocity,
+    # then derives bank and flight-path targets from that same vector.  It is
+    # an opt-in overlay so no historical controller changes behaviour.
+    lift_vector_guidance_enabled: bool = False
+    lift_vector_min_range_m: float = 150.0
+    lift_vector_max_range_m: float = 3000.0
+    lift_vector_max_ata_deg: float = 180.0
+    lift_vector_los_kp_g: float = 3.0
+    lift_vector_los_rate_gain: float = 1.2
+    lift_vector_max_accel_mps2: float = 35.0
+    lift_vector_bank_limit_deg: float = 72.0
+    lift_vector_gamma_limit_deg: float = 20.0
+    lift_vector_gamma_horizon_s: float = 0.7
+    lift_vector_blend: float = 0.75
+    lift_vector_defensive_blend: float = 1.0
     # Preserve lag while radial closure is still high.  ATA-only tapering can
     # collapse the offset exactly when geometry needs a longer flight path to
     # avoid an overshoot.  Optional throttle support preserves airspeed while
@@ -2438,6 +2454,103 @@ class IntegratedBFMController(ActionProvider):
             else cfg.max_bank_deg
         )
 
+        # W108 3-D outer loop. Positions/target-velocity are NED (D positive
+        # downward); vertical_speed is positive upward, hence own D-rate is
+        # -vertical_speed.  normal_error is the LOS component perpendicular to
+        # current velocity, while los_dot supplies damping/lead from the
+        # measured relative motion.  Both axes therefore react to the same
+        # current target motion instead of independent azimuth/altitude rules.
+        lift_vector_active = (
+            cfg.lift_vector_guidance_enabled
+            and cfg.lift_vector_min_range_m <= distance
+            <= cfg.lift_vector_max_range_m
+            and ata <= cfg.lift_vector_max_ata_deg
+            and dt is not None
+        )
+        lift_vector_target_bank = 0.0
+        lift_vector_target_gamma = 0.0
+        lift_vector_los_rate = 0.0
+        lift_vector_accel = 0.0
+        if lift_vector_active:
+            own_yaw_rad_lv = math.radians(own_yaw)
+            own_hspeed_lv = math.sqrt(max(
+                own_speed * own_speed - vertical_speed * vertical_speed,
+                1.0,
+            ))
+            own_velocity_lv = np.array([
+                own_hspeed_lv * math.cos(own_yaw_rad_lv),
+                own_hspeed_lv * math.sin(own_yaw_rad_lv),
+                -vertical_speed,
+            ])
+            target_velocity_lv = self._target_velocity.copy()
+            if float(np.linalg.norm(target_velocity_lv)) < 20.0:
+                target_yaw_rad_lv = math.radians(target_yaw)
+                target_velocity_lv = np.array([
+                    target_speed * math.cos(target_yaw_rad_lv),
+                    target_speed * math.sin(target_yaw_rad_lv),
+                    -self._target_climb_rate,
+                ])
+            range_lv = max(float(np.linalg.norm(relative_position)), 1.0)
+            los_unit_lv = relative_position / range_lv
+            relative_velocity_lv = target_velocity_lv - own_velocity_lv
+            los_dot_lv = (
+                relative_velocity_lv
+                - los_unit_lv * float(np.dot(los_unit_lv, relative_velocity_lv))
+            ) / range_lv
+            own_velocity_norm_lv = max(
+                float(np.linalg.norm(own_velocity_lv)), 1.0
+            )
+            own_forward_lv = own_velocity_lv / own_velocity_norm_lv
+            normal_error_lv = (
+                los_unit_lv
+                - own_forward_lv * float(np.dot(los_unit_lv, own_forward_lv))
+            )
+            los_rate_normal_lv = (
+                los_dot_lv
+                - own_forward_lv * float(np.dot(los_dot_lv, own_forward_lv))
+            )
+            acceleration_lv = (
+                cfg.lift_vector_los_kp_g * G * normal_error_lv
+                + cfg.lift_vector_los_rate_gain
+                * own_speed * los_rate_normal_lv
+            )
+            accel_norm_lv = float(np.linalg.norm(acceleration_lv))
+            if accel_norm_lv > cfg.lift_vector_max_accel_mps2:
+                acceleration_lv *= (
+                    cfg.lift_vector_max_accel_mps2 / accel_norm_lv
+                )
+                accel_norm_lv = cfg.lift_vector_max_accel_mps2
+            # Heading-frame right vector in N/E. Positive target bank in the
+            # live plant accelerates toward this side.
+            right_lv = np.array([
+                -math.sin(own_yaw_rad_lv),
+                math.cos(own_yaw_rad_lv),
+                0.0,
+            ])
+            lateral_accel_lv = float(np.dot(acceleration_lv, right_lv))
+            up_accel_lv = -float(acceleration_lv[2])
+            lift_vector_target_bank = float(np.clip(
+                math.degrees(math.atan2(lateral_accel_lv, G)),
+                -cfg.lift_vector_bank_limit_deg,
+                cfg.lift_vector_bank_limit_deg,
+            ))
+            current_gamma_lv = math.degrees(math.asin(np.clip(
+                vertical_speed / own_speed, -1.0, 1.0
+            )))
+            gamma_delta_lv = math.degrees(
+                up_accel_lv * cfg.lift_vector_gamma_horizon_s
+                / max(own_speed, 1.0)
+            )
+            lift_vector_target_gamma = float(np.clip(
+                current_gamma_lv + gamma_delta_lv,
+                -cfg.lift_vector_gamma_limit_deg,
+                cfg.lift_vector_gamma_limit_deg,
+            ))
+            lift_vector_los_rate = math.degrees(
+                float(np.linalg.norm(los_dot_lv))
+            )
+            lift_vector_accel = accel_norm_lv
+
         # Convert desired horizontal course rate to coordinated bank demand.
         bank_from_rate = math.degrees(math.atan2(
             own_speed * math.radians(desired_turn_rate), G
@@ -2569,6 +2682,19 @@ class IntegratedBFMController(ActionProvider):
                 signed_unit(target_bank, self._turn_sign)
                 * cfg.direct_course_min_bank_deg
             )
+        if lift_vector_active:
+            lift_blend = (
+                cfg.lift_vector_defensive_blend
+                if state == "defensive"
+                else cfg.lift_vector_blend
+            )
+            lift_blend = float(np.clip(lift_blend, 0.0, 1.0))
+            target_bank = float(np.clip(
+                (1.0 - lift_blend) * target_bank
+                + lift_blend * lift_vector_target_bank,
+                -effective_max_bank,
+                effective_max_bank,
+            ))
         bank_error = wrap180(target_bank - bank)
         desired_roll_rate = float(np.clip(
             cfg.bank_kp * bank_error,
@@ -2743,6 +2869,18 @@ class IntegratedBFMController(ActionProvider):
                 headon_gamma_sign * cfg.headon_deconflict_gamma_deg
             )
             gamma_limit = max(gamma_limit, cfg.headon_deconflict_gamma_deg)
+        if lift_vector_active:
+            lift_blend = (
+                cfg.lift_vector_defensive_blend
+                if state == "defensive"
+                else cfg.lift_vector_blend
+            )
+            lift_blend = float(np.clip(lift_blend, 0.0, 1.0))
+            desired_gamma = (
+                (1.0 - lift_blend) * desired_gamma
+                + lift_blend * lift_vector_target_gamma
+            )
+            gamma_limit = max(gamma_limit, cfg.lift_vector_gamma_limit_deg)
         if planner3d_active:
             # The 3-D planner owns both axes as one manoeuvre. Applying the old
             # horizontal-hold or periodic vertical-escape result afterwards
@@ -3098,6 +3236,11 @@ class IntegratedBFMController(ActionProvider):
             "overshoot_control_active": overshoot_control_active,
             "attack_conversion_active": attack_conversion_active,
             "headon_deconflict_active": headon_deconflict_active,
+            "lift_vector_active": lift_vector_active,
+            "lift_vector_target_bank": lift_vector_target_bank,
+            "lift_vector_target_gamma": lift_vector_target_gamma,
+            "lift_vector_los_rate": lift_vector_los_rate,
+            "lift_vector_accel": lift_vector_accel,
             "formula_vpp_active": formula_vpp_active,
             "formula_vpp_blend": self._formula_vpp_blend,
             "formula_vpp_mode": (
