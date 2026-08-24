@@ -372,6 +372,9 @@ class ProviderCommandPolicy:
                 "proposal_conflict", "proposal_saturated",
                 "active_bank_proposals", "active_pitch_proposals", "active_throttle_proposals",
                 "spawn_yaw_class",
+                "explicit_bank_override_active", "explicit_commit_sign",
+                "explicit_commit_age_s", "explicit_reversal_candidate",
+                "explicit_reversal_candidate_age_s",
             ])
         self._prev_log_time: float | None = None
         self._prev_log_roll: float | None = None
@@ -713,6 +716,11 @@ class ProviderCommandPolicy:
                 action_result.info.get("active_pitch_proposals", ""),
                 action_result.info.get("active_throttle_proposals", ""),
                 self._spawn_yaw_class,
+                action_result.info.get("explicit_bank_override_active", ""),
+                action_result.info.get("explicit_commit_sign", ""),
+                action_result.info.get("explicit_commit_age_s", ""),
+                action_result.info.get("explicit_reversal_candidate", ""),
+                action_result.info.get("explicit_reversal_candidate_age_s", ""),
             ])
             self._log_csv_file.flush()
 
