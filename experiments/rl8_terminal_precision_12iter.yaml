@@ -1,24 +1,25 @@
-name: rl8_ultra_attack_24iter
+name: rl8_attack_curriculum_80iter
 script: train_rllib
-output: {name: highdream, tag: rl8_ultra_attack_24iter_seed05}
+output: {name: highdream, tag: rl8_attack_curriculum_resume20_to80_seed06}
 
 env:
   observation_mode: tactical19
   target_mode: opponent_pool
   reward_module: student.my_reward_delta_v1_wez_proximity
-  max_engage_time: 35.0
-  episode_step_limit: 350
+  max_engage_time: 20.0
+  episode_step_limit: 200
 
 env_config:
   step_ratio: 6
   safety_override_enabled: true
-  opponent_pool_seed: 26082415
+  opponent_pool_seed: 26082416
   opponent_pool:
     common: {cruise_altitude_m: 4500.0, cruise_speed_kcas: 255.0, max_bank_deg: 72.0, max_pitch_deg: 28.0}
     behaviors:
-      - {type: steady_turn, weight: 3.0, ranges: {turn_bank_deg: [38.0, 72.0]}}
-      - {type: scripted_pursuit, weight: 3.0, ranges: {cruise_speed_kcas: [240.0, 290.0]}}
-      - {type: vertical_weave, weight: 1.0, ranges: {weave_amplitude_m: [180.0, 400.0], weave_period_s: [7.0, 13.0]}}
+      - {type: straight_level, weight: 1.5, ranges: {cruise_speed_kcas: [235.0, 280.0]}}
+      - {type: steady_turn, weight: 3.0, ranges: {turn_bank_deg: [22.0, 70.0]}}
+      - {type: scripted_pursuit, weight: 2.0, ranges: {cruise_speed_kcas: [240.0, 285.0]}}
+      - {type: vertical_weave, weight: 1.5, ranges: {weave_amplitude_m: [150.0, 420.0], weave_period_s: [7.0, 14.0]}}
   reward:
     altitude_soft_floor_m: 1200.0
     altitude_hard_floor_m: 700.0
@@ -28,24 +29,24 @@ env_config:
     win_reward: 100.0
     loss_reward: -100.0
     draw_reward: -30.0
-    damage_scale: 100.0
-    range_scale: 4.0
-    ata_scale: 0.30
+    damage_scale: 80.0
+    range_scale: 3.0
+    ata_scale: 0.22
     aa_scale: 0.0
-    ata_delta_scale: 0.30
-    range_delta_scale: 0.05
-    pursuit_heading_scale: 0.35
-    ata_precision_scale: 4.0
-    ata_precision_width_deg: 3.0
-    wez_bonus: 4.0
-    wez_proximity_scale: 1.5
+    ata_delta_scale: 0.22
+    range_delta_scale: 0.04
+    pursuit_heading_scale: 0.25
+    ata_precision_scale: 3.0
+    ata_precision_width_deg: 4.0
+    wez_bonus: 3.0
+    wez_proximity_scale: 0.8
     wez_proximity_use_aa: false
-    wez_hold_scale: 0.8
-    wez_hold_quality_threshold: 0.25
-    wez_hold_growth_per_step: 0.10
-    wez_hold_growth_cap_steps: 20
-    wez_hold_break_penalty_scale: 0.08
-    wez_hold_break_min_streak: 4
+    wez_hold_scale: 0.35
+    wez_hold_quality_threshold: 0.30
+    wez_hold_growth_per_step: 0.08
+    wez_hold_growth_cap_steps: 15
+    wez_hold_break_penalty_scale: 0.04
+    wez_hold_break_min_streak: 5
     roll_limit_deg: 80.0
     roll_limit_penalty: 0.02
     pitch_down_limit_deg: -12.0
@@ -67,7 +68,7 @@ env_config:
 algo:
   name: sac
   framework: torch
-  lr: 2.0e-6
+  lr: 1.0e-6
   gamma: 0.99
   train_batch_size: 256
   minibatch_size: 256
@@ -77,20 +78,19 @@ algo:
   mlp: {enabled: true, fcnet_hiddens: [256, 256], fcnet_activation: tanh, head_fcnet_hiddens: [], head_fcnet_activation: relu}
 
 runtime:
-  iterations: 24
-  seed: 26082415
+  iterations: 60
+  seed: 26082416
   num_env_runners: 1
   num_envs_per_env_runner: 1
   rollout_fragment_length: auto
   batch_mode: truncate_episodes
   replay_warmup_steps: 256
-  init_bundle: artifacts/models/highdream/altitude_attack_followup_v1_stage6obs19_v8_angle090_opp055_50iter_C10
+  restore_checkpoint: artifacts/checkpoints/highdream/rl8_attack_curriculum_80iter_seed06/checkpoint_000020
   save_lightweight_bundle: true
-  lightweight_bundle_frequency: 3
-  save_native_checkpoint: true
-  native_checkpoint_frequency: 3
+  lightweight_bundle_frequency: 10
+  save_native_checkpoint: false
 
 dashboard: {enabled: false}
 policy_probe: {enabled: false}
 engagement_log: {enabled: false}
-notes: "Emergency ultra-attack v8 continuation; symmetric live91; almost all shaping on ATA2/WEZ/damage; original v8 frozen."
+notes: "Longer v8 attack curriculum: 20s episodes, easy-to-hard opponent mixture, symmetric geometry, low LR, original v8 frozen."
