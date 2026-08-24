@@ -50,6 +50,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("ep1")
     parser._option_string_actions["--mode"].choices.append("ep2")
     parser._option_string_actions["--mode"].choices.append("ep3")
+    parser._option_string_actions["--mode"].choices.append("w97rl90")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -269,6 +270,25 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w97rl90":
+        if args.bundle_dir is None:
+            raise ValueError("--bundle-dir is required for w97rl90 mode")
+        from dogfight.ai.rule_profiles import build_w97_controller
+        from dogfight.ai.w56_residual_action_provider import W56ResidualActionProvider
+        return W56ResidualActionProvider(
+            bundle_dir=args.bundle_dir,
+            algorithm_factory=build_algorithm_from_bundle,
+            policy_id=args.policy_id,
+            roll_scale=0.20,
+            pitch_scale=0.20,
+            throttle_scale=0.10,
+            gate_ata_deg=90.0,
+            gate_range_m=3500.0,
+            gate_min_threat_ata_deg=10.0,
+            force_zero_residual=args.w56rl_zero_residual,
+            rule_provider=build_w97_controller(),
+        )
 
     if requested_mode == "ep3":
         from dogfight.ai.explicit_phase_bfm_controller import ExplicitPhaseBFMControllerV3
