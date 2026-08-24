@@ -152,6 +152,14 @@ class IntegratedBFMConfig:
     lift_vector_bank_slew_degps: float = 1.0e9
     lift_vector_sign_hold_s: float = 0.0
     lift_vector_sign_min_bank_deg: float = 10.0
+    lift_vector_adaptive_authority: bool = False
+    lift_vector_authority_ramp_s: float = 1.5
+    lift_vector_authority_tau_s: float = 0.0
+    lift_vector_saturation_min_authority_scale: float = 0.35
+    lift_vector_conflict_authority_scale: float = 0.35
+    lift_vector_conflict_bank_deg: float = 15.0
+    lift_vector_low_energy_speed_mps: float = 175.0
+    lift_vector_low_energy_authority_scale: float = 0.50
     # Preserve lag while radial closure is still high.  ATA-only tapering can
     # collapse the offset exactly when geometry needs a longer flight path to
     # avoid an overshoot.  Optional throttle support preserves airspeed while
@@ -495,6 +503,8 @@ class IntegratedBFMConfig:
     pitch_trim: float = -0.05
     turn_pull_at_max_bank: float = -0.22
     pitch_cmd_limit: float = 0.40
+    pitch_soft_authority_enabled: bool = False
+    pitch_soft_cmd_limit: float = 0.92
     fine_vertical_los_blend: float = 0.25
     vertical_prediction_horizon_s: float = 0.0
     use_altitude_rate_vertical_prediction: bool = False
@@ -658,6 +668,7 @@ class IntegratedBFMController(ActionProvider):
         self._lift_vector_sign = 1
         self._lift_vector_sign_until = 0.0
         self._lift_vector_was_active = False
+        self._lift_vector_authority = 0.0
         self._throttle = self.cfg.throttle_merge
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
@@ -2489,6 +2500,8 @@ class IntegratedBFMController(ActionProvider):
         lift_vector_target_gamma = 0.0
         lift_vector_los_rate = 0.0
         lift_vector_accel = 0.0
+        lift_vector_authority = 0.0
+        lift_vector_conflict = False
         if lift_vector_active:
             own_yaw_rad_lv = math.radians(own_yaw)
             own_hspeed_lv = math.sqrt(max(
@@ -2772,13 +2785,70 @@ class IntegratedBFMController(ActionProvider):
                 if state == "defensive"
                 else cfg.lift_vector_blend
             )
+            if cfg.lift_vector_adaptive_authority:
+                ramp = float(np.clip(
+                    (elapsed - cfg.lift_vector_activation_delay_s)
+                    / max(cfg.lift_vector_authority_ramp_s, 0.05),
+                    0.0,
+                    1.0,
+                ))
+                saturation_ratio = float(np.clip(
+                    lift_vector_accel
+                    / max(cfg.lift_vector_max_accel_mps2, 1.0),
+                    0.0,
+                    1.0,
+                ))
+                saturation_scale = 1.0 - saturation_ratio * (
+                    1.0 - cfg.lift_vector_saturation_min_authority_scale
+                )
+                lift_vector_conflict = (
+                    abs(target_bank) >= cfg.lift_vector_conflict_bank_deg
+                    and abs(lift_vector_target_bank)
+                    >= cfg.lift_vector_conflict_bank_deg
+                    and target_bank * lift_vector_target_bank < 0.0
+                )
+                conflict_scale = (
+                    cfg.lift_vector_conflict_authority_scale
+                    if lift_vector_conflict else 1.0
+                )
+                energy_scale = (
+                    cfg.lift_vector_low_energy_authority_scale
+                    if own_speed < cfg.lift_vector_low_energy_speed_mps
+                    else 1.0
+                )
+                lift_blend *= (
+                    ramp * saturation_scale * conflict_scale * energy_scale
+                )
+                if lift_vector_conflict:
+                    # Do not average opposite steering intentions. The proven
+                    # tactical controller owns this frame; the vector overlay
+                    # may re-enter only after both agree on the manoeuvre side.
+                    lift_blend = 0.0
+                    self._lift_vector_authority = 0.0
             lift_blend = float(np.clip(lift_blend, 0.0, 1.0))
+            if (
+                cfg.lift_vector_adaptive_authority
+                and dt
+                and cfg.lift_vector_authority_tau_s > 0.0
+            ):
+                authority_alpha = 1.0 - math.exp(
+                    -dt / cfg.lift_vector_authority_tau_s
+                )
+                self._lift_vector_authority += authority_alpha * (
+                    lift_blend - self._lift_vector_authority
+                )
+                lift_blend = self._lift_vector_authority
+            else:
+                self._lift_vector_authority = lift_blend
+            lift_vector_authority = lift_blend
             target_bank = float(np.clip(
                 (1.0 - lift_blend) * target_bank
                 + lift_blend * lift_vector_target_bank,
                 -effective_max_bank,
                 effective_max_bank,
             ))
+        else:
+            self._lift_vector_authority = 0.0
         bank_error = wrap180(target_bank - bank)
         desired_roll_rate = float(np.clip(
             cfg.bank_kp * bank_error,
@@ -2954,15 +3024,9 @@ class IntegratedBFMController(ActionProvider):
             )
             gamma_limit = max(gamma_limit, cfg.headon_deconflict_gamma_deg)
         if lift_vector_active:
-            lift_blend = (
-                cfg.lift_vector_defensive_blend
-                if state == "defensive"
-                else cfg.lift_vector_blend
-            )
-            lift_blend = float(np.clip(lift_blend, 0.0, 1.0))
             desired_gamma = (
-                (1.0 - lift_blend) * desired_gamma
-                + lift_blend * lift_vector_target_gamma
+                (1.0 - lift_vector_authority) * desired_gamma
+                + lift_vector_authority * lift_vector_target_gamma
             )
             gamma_limit = max(gamma_limit, cfg.lift_vector_gamma_limit_deg)
         if planner3d_active:
@@ -3006,6 +3070,22 @@ class IntegratedBFMController(ActionProvider):
         turn_pull = cfg.turn_pull_at_max_bank * bank_fraction * bank_fraction
         if cfg.integrated_manager_enabled and energy_deficit:
             turn_pull *= cfg.integrated_energy_pull_scale
+        pitch_soft_limited = False
+        if cfg.pitch_soft_authority_enabled:
+            # Share one actuator budget between flight-path tracking and turn
+            # pull. Previously these independent terms could sum beyond the
+            # limit and remain clipped, hiding which loop actually had control.
+            rate_pitch_component = (
+                -desired_pitch_rate / cfg.pitch_rate_gain_degps_per_unit
+            )
+            pitch_without_pull = cfg.pitch_trim + rate_pitch_component
+            pull_low = -cfg.pitch_soft_cmd_limit - pitch_without_pull
+            pull_high = cfg.pitch_soft_cmd_limit - pitch_without_pull
+            limited_turn_pull = float(np.clip(
+                turn_pull, pull_low, pull_high
+            ))
+            pitch_soft_limited = abs(limited_turn_pull - turn_pull) > 1e-6
+            turn_pull = limited_turn_pull
         pitch_cmd = float(np.clip(
             cfg.pitch_trim + turn_pull - desired_pitch_rate / cfg.pitch_rate_gain_degps_per_unit,
             -cfg.pitch_cmd_limit,
@@ -3068,6 +3148,16 @@ class IntegratedBFMController(ActionProvider):
                 sustained_pull_cmd = cfg.sustained_pull_mid_cmd
             if sustained_pull_cmd < 0.0:
                 pitch_cmd = max(-cfg.pitch_cmd_limit, min(pitch_cmd, sustained_pull_cmd))
+        if cfg.pitch_soft_authority_enabled:
+            soft_pitch = float(np.clip(
+                pitch_cmd,
+                -cfg.pitch_soft_cmd_limit,
+                cfg.pitch_soft_cmd_limit,
+            ))
+            pitch_soft_limited = (
+                pitch_soft_limited or abs(soft_pitch - pitch_cmd) > 1e-6
+            )
+            pitch_cmd = soft_pitch
         max_test_pull_active = (
             max_test_active
             and cfg.max_test_pitch_cmd < 0.0
@@ -3325,6 +3415,8 @@ class IntegratedBFMController(ActionProvider):
             "lift_vector_target_gamma": lift_vector_target_gamma,
             "lift_vector_los_rate": lift_vector_los_rate,
             "lift_vector_accel": lift_vector_accel,
+            "lift_vector_authority": lift_vector_authority,
+            "lift_vector_conflict": lift_vector_conflict,
             "formula_vpp_active": formula_vpp_active,
             "formula_vpp_blend": self._formula_vpp_blend,
             "formula_vpp_mode": (
@@ -3391,6 +3483,7 @@ class IntegratedBFMController(ActionProvider):
             "desired_pitch_rate": desired_pitch_rate,
             "measured_pitch_rate": self._pitch_rate,
             "turn_pitch_feedforward": turn_pull,
+            "pitch_soft_limited": pitch_soft_limited,
             "own_pitch": pitch,
             "own_alt": altitude,
             "vertical_speed": vertical_speed,

@@ -283,6 +283,7 @@ class ProviderCommandPolicy:
                 # W2 coordinated-turn feed-forward diagnostics.  Blank for
                 # providers that do not publish these ActionResult fields.
                 "turn_pitch_feedforward", "desired_gamma_deg", "gamma_error_deg",
+                "pitch_soft_limited",
                 # Integrated BFM manager/guidance diagnostics (W14+).
                 "threat_ata_deg", "aim_az_deg", "aim_el_deg",
                 "advantage_score", "advantage_ttc_s", "advantage_manager_reason",
@@ -331,7 +332,8 @@ class ProviderCommandPolicy:
                 "headon_deconflict_active",
                 "lift_vector_active", "lift_vector_target_bank_deg",
                 "lift_vector_target_gamma_deg", "lift_vector_los_rate_degps",
-                "lift_vector_accel_mps2",
+                "lift_vector_accel_mps2", "lift_vector_authority",
+                "lift_vector_conflict",
                 "formula_vpp_active", "formula_vpp_blend",
                 "formula_vpp_mode", "formula_vpp_turn_rate_degps",
                 "formula_vpp_t_cpa_s", "formula_vpp_d_cpa_m",
@@ -559,6 +561,7 @@ class ProviderCommandPolicy:
                 action_result.info.get("turn_pitch_feedforward", ""),
                 action_result.info.get("desired_gamma", ""),
                 action_result.info.get("gamma_error", ""),
+                action_result.info.get("pitch_soft_limited", ""),
                 action_result.info.get("threat_ata", ""),
                 action_result.info.get("aim_az", ""),
                 action_result.info.get("aim_el", ""),
@@ -633,6 +636,8 @@ class ProviderCommandPolicy:
                 action_result.info.get("lift_vector_target_gamma", ""),
                 action_result.info.get("lift_vector_los_rate", ""),
                 action_result.info.get("lift_vector_accel", ""),
+                action_result.info.get("lift_vector_authority", ""),
+                action_result.info.get("lift_vector_conflict", ""),
                 action_result.info.get("formula_vpp_active", ""),
                 action_result.info.get("formula_vpp_blend", ""),
                 action_result.info.get("formula_vpp_mode", ""),

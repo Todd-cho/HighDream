@@ -48,7 +48,7 @@ def _state(row: dict[str, str], prefix: str) -> np.ndarray:
     return state
 
 
-def replay(path: Path, mode: str) -> tuple[int, float, float, float, int]:
+def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float]:
     provider = _provider(mode)
     active = 0
     max_abs_action = 0.0
@@ -56,6 +56,8 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int]:
     max_logged_action_error = 0.0
     previous_bank_sign = 0
     bank_sign_flips = 0
+    max_abs_pitch = 0.0
+    max_authority = 0.0
     with path.open("r", encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             own = _state(row, "own")
@@ -82,6 +84,11 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int]:
             max_abs_action = max(
                 max_abs_action, float(np.max(np.abs(result.action)))
             )
+            max_abs_pitch = max(max_abs_pitch, abs(float(result.action[1])))
+            max_authority = max(
+                max_authority,
+                float(result.info.get("lift_vector_authority", 0.0)),
+            )
             if result.info.get("lift_vector_active", False):
                 active += 1
                 max_accel = max(
@@ -100,7 +107,7 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int]:
                     previous_bank_sign = bank_sign
     return (
         active, max_abs_action, max_accel, max_logged_action_error,
-        bank_sign_flips,
+        bank_sign_flips, max_abs_pitch, max_authority,
     )
 
 
@@ -111,6 +118,7 @@ def main() -> None:
     w100 = replay(args.csv, "w100")
     w108 = replay(args.csv, "w108")
     w109 = replay(args.csv, "w109")
+    w110 = replay(args.csv, "w110")
     assert w100[0] == 0, "W100 isolation failed: overlay unexpectedly active"
     assert w108[0] > 0, "W108 overlay never activated on the reference log"
     assert w108[1] <= 1.00001, "W108 emitted an out-of-bounds command"
@@ -119,6 +127,9 @@ def main() -> None:
     assert w109[1] <= 1.00001, "W109 emitted an out-of-bounds command"
     assert w109[2] <= 25.00001, "W109 exceeded configured acceleration limit"
     assert w109[4] < w108[4], "W109 did not reduce lift-vector bank chatter"
+    assert w110[0] > 0, "W110 overlay never activated on the reference log"
+    assert w110[5] <= 0.92001, "W110 exceeded its pitch authority budget"
+    assert w110[6] <= 1.00001, "W110 authority weights exceed unity"
     assert w100[3] <= 1e-5, (
         f"W100 historical behaviour changed: max error={w100[3]:.8f}"
     )
@@ -133,6 +144,11 @@ def main() -> None:
     print(
         f"W109 active={w109[0]} max_action={w109[1]:.3f} "
         f"max_accel={w109[2]:.3f} bank_flips={w109[4]}"
+    )
+    print(
+        f"W110 active={w110[0]} max_action={w110[1]:.3f} "
+        f"max_accel={w110[2]:.3f} bank_flips={w110[4]} "
+        f"max_pitch={w110[5]:.3f} max_authority={w110[6]:.3f}"
     )
 
 

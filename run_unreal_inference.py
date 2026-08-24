@@ -43,6 +43,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w107")
     parser._option_string_actions["--mode"].choices.append("w108")
     parser._option_string_actions["--mode"].choices.append("w109")
+    parser._option_string_actions["--mode"].choices.append("w110")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -262,6 +263,26 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w110":
+        # Inherit the complete audited W109 profile. W110 changes only the
+        # control-rights arbiter and pitch actuator budget, avoiding another
+        # copied configuration block that could silently drift.
+        base_args = copy.copy(args)
+        base_args.mode = "w109"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w110"
+        controller.cfg.lift_vector_adaptive_authority = False
+        controller.cfg.lift_vector_authority_ramp_s = 1.5
+        controller.cfg.lift_vector_authority_tau_s = 0.0
+        controller.cfg.lift_vector_saturation_min_authority_scale = 0.35
+        controller.cfg.lift_vector_conflict_authority_scale = 0.35
+        controller.cfg.lift_vector_conflict_bank_deg = 15.0
+        controller.cfg.lift_vector_low_energy_speed_mps = 175.0
+        controller.cfg.lift_vector_low_energy_authority_scale = 0.50
+        controller.cfg.pitch_soft_authority_enabled = True
+        controller.cfg.pitch_soft_cmd_limit = 0.92
+        return controller
 
     if requested_mode in ("w100rl", "w103rl"):
         if args.bundle_dir is None:
