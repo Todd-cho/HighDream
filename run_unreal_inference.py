@@ -46,6 +46,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w110")
     parser._option_string_actions["--mode"].choices.append("w111")
     parser._option_string_actions["--mode"].choices.append("w112")
+    parser._option_string_actions["--mode"].choices.append("w113")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -265,6 +266,20 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w113":
+        # Strict single-variable live experiment: retain W111 opening,
+        # defense, post-merge role arbitration, and physical pull unchanged.
+        # Only admit the safe side-shot geometry observed in run0207.
+        base_args = copy.copy(args)
+        base_args.mode = "w111"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w113"
+        controller.cfg.terminal_track_max_aspect_deg = 90.0
+        controller.cfg.terminal_track_min_threat_ata_deg = 60.0
+        controller.cfg.attack_conversion_max_aspect_deg = 90.0
+        controller.cfg.attack_conversion_min_threat_ata_deg = 60.0
+        return controller
 
     if requested_mode == "w112":
         # W111 plus a measured-plant opening pull once bank is established,
