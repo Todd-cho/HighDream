@@ -48,7 +48,7 @@ def _state(row: dict[str, str], prefix: str) -> np.ndarray:
     return state
 
 
-def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float, float, float, int, int]:
+def replay(path: Path, mode: str, *, capture_actions: bool = False):
     provider = _provider(mode)
     active = 0
     max_abs_action = 0.0
@@ -62,6 +62,8 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
     first_merge_pass_time = -1.0
     opening_boost_frames = 0
     terminal_track_frames = 0
+    actions: list[np.ndarray] = []
+    explicit_phase_frames = 0
     with path.open("r", encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             own = _state(row, "own")
@@ -74,6 +76,10 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
             ))
             if not np.all(np.isfinite(result.action)):
                 raise AssertionError(f"{mode}: non-finite action")
+            if capture_actions:
+                actions.append(np.asarray(result.action, dtype=np.float64).copy())
+            if result.info.get("engagement_phase", ""):
+                explicit_phase_frames += 1
             if (
                 mode == "w100"
                 and "w100_raw" in path.name
@@ -124,13 +130,14 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
                 opening_boost_frames += 1
             if result.info.get("terminal_track_active", False):
                 terminal_track_frames += 1
-    return (
+    summary = (
         active, max_abs_action, max_accel, max_logged_action_error,
         bank_sign_flips, max_abs_pitch, max_authority,
         first_active_time, first_merge_pass_time,
         opening_boost_frames,
         terminal_track_frames,
     )
+    return (summary, np.vstack(actions), explicit_phase_frames) if capture_actions else summary
 
 
 def main() -> None:
@@ -144,6 +151,8 @@ def main() -> None:
     w111 = replay(args.csv, "w111")
     w112 = replay(args.csv, "w112")
     w113 = replay(args.csv, "w113")
+    w111_capture, w111_actions, _ = replay(args.csv, "w111", capture_actions=True)
+    ep1_capture, ep1_actions, ep1_phase_frames = replay(args.csv, "ep1", capture_actions=True)
     assert w100[0] == 0, "W100 isolation failed: overlay unexpectedly active"
     assert w108[0] > 0, "W108 overlay never activated on the reference log"
     assert w108[1] <= 1.00001, "W108 emitted an out-of-bounds command"
@@ -164,6 +173,9 @@ def main() -> None:
     assert w112[5] <= 0.95001, "W112 exceeded pitch authority budget"
     assert w113[9] == 0, "W113 unexpectedly inherited opening boost"
     assert w113[10] > 0, "W113 side-shot terminal gate never activated"
+    assert np.array_equal(w111_actions, ep1_actions), "EP1 changed W111 commands"
+    assert ep1_phase_frames == len(ep1_actions), "EP1 phase telemetry is incomplete"
+    assert ep1_capture == w111_capture, "EP1 changed W111 replay summary"
     assert w100[3] <= 1e-5, (
         f"W100 historical behaviour changed: max error={w100[3]:.8f}"
     )
@@ -200,6 +212,7 @@ def main() -> None:
         f"bank_flips={w113[4]} terminal={w113[10]}frames "
         f"opening_boost={w113[9]}frames"
     )
+    print(f"EP1 parity=exact frames={len(ep1_actions)} phase_rows={ep1_phase_frames}")
 
 
 if __name__ == "__main__":

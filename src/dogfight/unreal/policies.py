@@ -365,12 +365,20 @@ class ProviderCommandPolicy:
                 "rule_roll_cmd", "rule_pitch_cmd", "rule_yaw_cmd", "rule_throttle_cmd",
                 "provider_roll_cmd", "provider_pitch_cmd", "provider_yaw_cmd", "provider_throttle_cmd",
                 "residual_bundle_id", "residual_safety_active",
+                # Explicit-phase controller diagnostics (EP1+).
+                "engagement_phase", "bank_owner", "pitch_owner", "throttle_owner",
+                "bank_authority", "pitch_authority", "throttle_authority",
+                "bank_proposal_count", "pitch_proposal_count", "throttle_proposal_count",
+                "proposal_conflict", "proposal_saturated",
+                "active_bank_proposals", "active_pitch_proposals", "active_throttle_proposals",
+                "spawn_yaw_class",
             ])
         self._prev_log_time: float | None = None
         self._prev_log_roll: float | None = None
         self._prev_log_pitch: float | None = None
         self._prev_log_yaw: float | None = None
         self._prev_log_alt: float | None = None
+        self._spawn_yaw_class: str | None = None
 
     def reset(self, context: RemoteClientContext) -> None:
         self.action_provider.reset(None)
@@ -384,6 +392,7 @@ class ProviderCommandPolicy:
         self._prev_log_pitch = None
         self._prev_log_yaw = None
         self._prev_log_alt = None
+        self._spawn_yaw_class = None
 
     def _apply_action_rate_limit(self, action: np.ndarray) -> np.ndarray:
         """Mirrors single_agent_env.py's _apply_action_rate_limit exactly --
@@ -534,6 +543,9 @@ class ProviderCommandPolicy:
             self._prev_log_pitch = own_plane.rotation.pitch
             self._prev_log_yaw = own_plane.rotation.yaw
             self._prev_log_alt = own_plane.position.z
+            if self._spawn_yaw_class is None:
+                spawn_yaw = (float(own_plane.rotation.yaw) + 180.0) % 360.0 - 180.0
+                self._spawn_yaw_class = "yawp090" if spawn_yaw >= 0.0 else "yawm090"
 
             raw_residual = action_result.info.get("raw_residual", ["", "", ""])
             scaled_residual = action_result.info.get("scaled_residual", ["", "", ""])
@@ -685,6 +697,22 @@ class ProviderCommandPolicy:
                 *provider_action,
                 action_result.info.get("bundle_id", ""),
                 action_result.info.get("safety_override_active", ""),
+                action_result.info.get("engagement_phase", ""),
+                action_result.info.get("bank_owner", ""),
+                action_result.info.get("pitch_owner", ""),
+                action_result.info.get("throttle_owner", ""),
+                action_result.info.get("bank_authority", ""),
+                action_result.info.get("pitch_authority", ""),
+                action_result.info.get("throttle_authority", ""),
+                action_result.info.get("bank_proposal_count", ""),
+                action_result.info.get("pitch_proposal_count", ""),
+                action_result.info.get("throttle_proposal_count", ""),
+                action_result.info.get("proposal_conflict", ""),
+                action_result.info.get("proposal_saturated", ""),
+                action_result.info.get("active_bank_proposals", ""),
+                action_result.info.get("active_pitch_proposals", ""),
+                action_result.info.get("active_throttle_proposals", ""),
+                self._spawn_yaw_class,
             ])
             self._log_csv_file.flush()
 
