@@ -258,3 +258,83 @@ def build_w56_controller() -> IntegratedBFMController:
     """Build a fresh, reset W56 controller."""
     return IntegratedBFMController(build_w56_config())
 
+
+def build_w97_config() -> IntegratedBFMConfig:
+    """Return the W97 live profile for residual-RL training.
+
+    Keep this builder explicit so training and live inference cannot silently
+    use different baselines.  W97 is W53 plus the measured-energy W89 fields
+    and the coupled 3-D research planner introduced in W95--W97.
+    """
+    cfg = build_w53_config()
+    cfg.controller_name = "w97"
+    cfg.predictive_guidance_enabled = False
+    cfg.predictive_adversarial_enabled = True
+    cfg.predictive_guidance_min_ata_deg = 25.0
+    cfg.predictive_horizon_min_s = 1.0
+    cfg.predictive_horizon_max_s = 1.0
+    cfg.predictive_candidate_count = 13
+    cfg.predictive_turn_limit_degps = 17.0
+    cfg.predictive_live_turn_envelope = True
+    cfg.predictive_response_delay_s = 0.15
+    cfg.predictive_turn_slew_degps2 = 40.0
+    cfg.predictive_override_min_score_gain = 1.5
+    cfg.predictive_override_min_rate_delta_degps = 1.0
+    cfg.predictive_target_turn_limit_degps = 18.0
+    cfg.predictive_threat_cone_deg = 30.0
+    cfg.predictive_threat_weight = 1.5
+    cfg.predictive_midpoint_weight = 0.65
+    cfg.lag_pursuit_offset_min_m = 250.0
+    cfg.lag_pursuit_offset_max_m = 800.0
+    cfg.lag_pursuit_offset_gain_s = 2.5
+    cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+    cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+    cfg.lag_pursuit_mutual_lateral_offset_m = 450.0
+    cfg.lag_pursuit_mutual_threat_ata_deg = 30.0
+    cfg.lag_pursuit_taper_max_closure_mps = 140.0
+    cfg.lag_pursuit_energy_target_speed_mps = 195.0
+    cfg.lag_pursuit_energy_throttle_base = 0.55
+    cfg.lag_pursuit_energy_throttle_gain = 0.015
+    cfg.lag_pursuit_disable_defensive = True
+    cfg.lag_pursuit_advantage_full_deg = 20.0
+    cfg.lag_pursuit_scale_tau_s = 0.6
+    cfg.turn_rudder_assist = 0.60
+    cfg.high_bank_target_speed_mps = 195.0
+    cfg.high_bank_dynamic_speed_enabled = True
+    cfg.high_bank_dynamic_near_range_m = 1500.0
+    cfg.high_bank_dynamic_far_range_m = 3000.0
+    cfg.high_bank_dynamic_target_margin_mps = 10.0
+    cfg.high_bank_dynamic_max_speed_mps = 265.0
+    cfg.advantage_manager_enabled = True
+    cfg.advantage_min_attack_ttc_s = 2.5
+    cfg.terminal_track_min_threat_ata_deg = 40.0
+    cfg.defensive_threat_ata_deg = 15.0
+    cfg.defensive_range_m = 1600.0
+    cfg.defensive_closure_mps = 0.0
+    cfg.defensive_min_hold_s = 1.2
+    cfg.defensive_vertical_escape = False
+    cfg.defensive_escape_threat_ata_deg = 15.0
+    cfg.defensive_escape_own_ata_deg = 20.0
+    cfg.defensive_escape_range_m = 1600.0
+    cfg.defensive_escape_gamma_deg = 20.0
+    cfg.defensive_escape_switch_s = 1.8
+    cfg.defensive_escape_floor_m = 2500.0
+    cfg.planner3d_enabled = True
+    cfg.planner3d_horizon_s = 2.5
+    cfg.planner3d_turn_limit_degps = 16.0
+    cfg.planner3d_target_turn_limit_degps = 18.0
+    cfg.planner3d_gamma_deg = 24.0
+    cfg.planner3d_target_gamma_deg = 22.0
+    cfg.planner3d_manoeuvre_hold_s = 0.35
+    cfg.planner3d_adaptive_horizon = True
+    cfg.planner3d_reachable_target_envelope = True
+    cfg.planner3d_emergency_replan = True
+    cfg.planner3d_emergency_hold_s = 0.15
+    cfg.planner3d_research_scoring = True
+    cfg.throttle_min = 0.35
+    return cfg
+
+
+def build_w97_controller() -> IntegratedBFMController:
+    """Build a fresh W97 controller identical to the live W97 profile."""
+    return IntegratedBFMController(build_w97_config())

@@ -3,6 +3,9 @@ from __future__ import annotations
 import copy
 from dataclasses import asdict, dataclass, field, is_dataclass
 import math
+import multiprocessing as mp
+import queue
+import signal
 import socket
 import sys
 import threading
@@ -69,6 +72,197 @@ class PacketTrace:
     fields: dict[str, Any] = field(default_factory=dict)
 
 
+class _IPCCommandPolicy:
+    """Cheap policy used inside the network process.
+
+    It publishes the newest coherent state to the controller process and
+    returns the last completed four-axis command from shared memory.
+    """
+
+    def __init__(self, state_queue, reset_queue, shared_action):
+        self.state_queue = state_queue
+        self.reset_queue = reset_queue
+        self.shared_action = shared_action
+
+    @staticmethod
+    def _replace_latest(q, value) -> None:
+        try:
+            q.put_nowait(value)
+            return
+        except queue.Full:
+            pass
+        try:
+            q.get_nowait()
+        except queue.Empty:
+            pass
+        try:
+            q.put_nowait(value)
+        except queue.Full:
+            pass
+
+    def reset(self, context: RemoteClientContext) -> None:
+        self._replace_latest(self.reset_queue, context)
+        with self.shared_action.get_lock():
+            self.shared_action[:] = (0.0, 0.0, 0.0, 1.0)
+
+    def compute_command(self, context: RemoteClientContext) -> CMD:
+        self._replace_latest(self.state_queue, context)
+        with self.shared_action.get_lock():
+            action = tuple(self.shared_action[:])
+        return CMD(
+            plane_id=context.plane_id,
+            index=context.frame_index,
+            roll_cmd=action[0],
+            pitch_cmd=action[1],
+            yaw_cmd=action[2],
+            throttle_cmd=action[3],
+        )
+
+
+def _multiprocess_network_entry(
+    client_kwargs: dict,
+    state_queue,
+    reset_queue,
+    shared_action,
+    stop_event,
+) -> None:
+    """Windows-spawn-safe network process entry point."""
+    # Windows delivers console Ctrl+C to every process sharing the console.
+    # Only the parent should translate it into an orderly stop_event; otherwise
+    # the child can receive KeyboardInterrupt while joining its own threads and
+    # lose both CONTROL_SUMMARY and a clean exit code.
+    signal.signal(signal.SIGINT, signal.SIG_IGN)
+    proxy = _IPCCommandPolicy(state_queue, reset_queue, shared_action)
+    client = UnrealAIPilotUDPClient(command_policy=proxy, **client_kwargs)
+
+    def watch_stop() -> None:
+        stop_event.wait()
+        client._running = False
+
+    watcher = threading.Thread(target=watch_stop, daemon=True)
+    watcher.start()
+    client.run()
+
+
+class MultiprocessUnrealAIPilotUDPClient:
+    """Keep UDP frame service isolated from CPU-heavy controller work.
+
+    The child process owns the socket and answers every server frame with the
+    newest completed action.  The parent process owns the real policy, so a
+    slow W97 search cannot hold the child's receive loop through Python's GIL.
+    """
+
+    def __init__(self, command_policy: CommandPolicy, **client_kwargs):
+        self.command_policy = command_policy
+        self.client_kwargs = client_kwargs
+        self._ctx = mp.get_context("spawn")
+        self._state_queue = self._ctx.Queue(maxsize=1)
+        self._reset_queue = self._ctx.Queue(maxsize=1)
+        self._shared_action = self._ctx.Array(
+            "d", (0.0, 0.0, 0.0, 1.0), lock=True
+        )
+        self._stop_event = self._ctx.Event()
+        self._process = None
+        self._policy_computes = 0
+        self._stop_lock = threading.Lock()
+        self._stopped = False
+
+    @staticmethod
+    def _drain_latest(q):
+        latest = None
+        while True:
+            try:
+                latest = q.get_nowait()
+            except queue.Empty:
+                return latest
+
+    def _reset_policy(self, context: RemoteClientContext) -> None:
+        # States queued before Init belong to the previous episode.
+        self._drain_latest(self._state_queue)
+        self.command_policy.reset(context)
+        with self._shared_action.get_lock():
+            self._shared_action[:] = (0.0, 0.0, 0.0, 1.0)
+
+    def run(self) -> None:
+        self._stopped = False
+        self._stop_event.clear()
+        self._process = self._ctx.Process(
+            target=_multiprocess_network_entry,
+            args=(
+                self.client_kwargs,
+                self._state_queue,
+                self._reset_queue,
+                self._shared_action,
+                self._stop_event,
+            ),
+            name="unreal-udp-network",
+        )
+        self._process.start()
+        print(
+            f"[MP_TRANSPORT] network_pid={self._process.pid} "
+            f"controller_pid={mp.current_process().pid}"
+        )
+
+        try:
+            while self._process.is_alive():
+                reset_context = self._drain_latest(self._reset_queue)
+                if reset_context is not None:
+                    self._reset_policy(reset_context)
+
+                try:
+                    context = self._state_queue.get(timeout=0.05)
+                except queue.Empty:
+                    continue
+
+                newer_context = self._drain_latest(self._state_queue)
+                if newer_context is not None:
+                    context = newer_context
+
+                # Do not publish a computation that crossed an episode reset.
+                reset_context = self._drain_latest(self._reset_queue)
+                if reset_context is not None:
+                    self._reset_policy(reset_context)
+                    continue
+
+                try:
+                    command = self.command_policy.compute_command(context)
+                except Exception as exc:
+                    print(f"[MP_POLICY_ERROR] {type(exc).__name__}: {exc}")
+                    continue
+
+                with self._shared_action.get_lock():
+                    self._shared_action[:] = (
+                        float(command.roll_cmd),
+                        float(command.pitch_cmd),
+                        float(command.yaw_cmd),
+                        float(command.throttle_cmd),
+                    )
+                self._policy_computes += 1
+        finally:
+            self.stop()
+
+    def stop(self) -> None:
+        with self._stop_lock:
+            if self._stopped:
+                return
+            self._stopped = True
+            self._stop_event.set()
+            process = self._process
+            # The child performs bounded joins for its control, heartbeat and
+            # monitor threads, so allow those to finish before fallback kill.
+            if process is not None and process.is_alive():
+                process.join(timeout=5.0)
+            if process is not None and process.is_alive():
+                print("[MP_TRANSPORT] network process did not stop; terminating")
+                process.terminate()
+                process.join(timeout=1.0)
+            exitcode = None if process is None else process.exitcode
+            print(
+                f"[MP_CONTROL_SUMMARY] policy_computes={self._policy_computes} "
+                f"network_exitcode={exitcode}"
+            )
+
+
 class UnrealAIPilotUDPClient:
     def __init__(
         self,
@@ -104,6 +298,23 @@ class UnrealAIPilotUDPClient:
         self._running = False
         self._heartbeat_thread: threading.Thread | None = None
         self._terminal_monitor_thread: threading.Thread | None = None
+        # PlaneInfo reception must never wait for an expensive policy.  W97's
+        # 3-D min-max search can take tens of milliseconds, while the server
+        # expects a CMD on every 60 Hz frame.  The receive thread therefore
+        # returns the most recently completed command immediately and a
+        # separate worker refreshes that command from the newest state.
+        self._control_thread: threading.Thread | None = None
+        self._control_event = threading.Event()
+        self._policy_lock = threading.Lock()
+        self._pending_control_context: RemoteClientContext | None = None
+        self._control_generation = 0
+        self._cached_control = (0.0, 0.0, 0.0, 1.0)
+        self._last_command_frame = -1
+        self._last_control_pair_frame = -1
+        self._control_compute_count = 0
+        self._command_frame_count = 0
+        self._duplicate_frame_drop_count = 0
+        self._mismatched_pair_wait_count = 0
         self._lock = threading.Lock()
         self.context = RemoteClientContext()
         self._own_info_received = False
@@ -150,6 +361,7 @@ class UnrealAIPilotUDPClient:
     def run(self) -> None:
         self.connect()
         self._running = True
+        self._start_control_worker()
         self._start_terminal_monitor()
         self._start_heartbeat()
         try:
@@ -159,6 +371,9 @@ class UnrealAIPilotUDPClient:
 
     def stop(self) -> None:
         self._running = False
+        self._control_event.set()
+        if self._control_thread and self._control_thread.is_alive():
+            self._control_thread.join(timeout=2.0)
         if self._heartbeat_thread and self._heartbeat_thread.is_alive():
             self._heartbeat_thread.join(timeout=1.0)
         if self._terminal_monitor_thread and self._terminal_monitor_thread.is_alive():
@@ -169,6 +384,14 @@ class UnrealAIPilotUDPClient:
         if self._damage_log_file is not None:
             self._damage_log_file.close()
             self._damage_log_file = None
+        print(
+            "[CONTROL_SUMMARY] "
+            f"cmd_frames={self._command_frame_count} "
+            f"policy_computes={self._control_compute_count} "
+            f"last_cmd_frame={self._last_command_frame} "
+            f"duplicate_drops={self._duplicate_frame_drop_count} "
+            f"pair_waits={self._mismatched_pair_wait_count}"
+        )
 
     def enable_packet_monitor(self, refresh_interval_sec: float | None = None) -> None:
         with self._lock:
@@ -193,6 +416,11 @@ class UnrealAIPilotUDPClient:
             plane_info_by_id = copy.deepcopy(self._last_plane_info_by_id)
             rx_counts = dict(self._rx_counts)
             tx_counts = dict(self._tx_counts)
+            control_compute_count = self._control_compute_count
+            command_frame_count = self._command_frame_count
+            duplicate_frame_drop_count = self._duplicate_frame_drop_count
+            mismatched_pair_wait_count = self._mismatched_pair_wait_count
+            last_command_frame = self._last_command_frame
 
         lines = [
             "=== Unreal UDP Packet Monitor ===",
@@ -208,6 +436,13 @@ class UnrealAIPilotUDPClient:
             "[Counters]",
             "RX: " + self._format_counts(rx_counts),
             "TX: " + self._format_counts(tx_counts),
+            (
+                "Control: "
+                f"cmd_frames={command_frame_count} computes={control_compute_count} "
+                f"last_cmd_frame={last_command_frame} "
+                f"duplicate_drops={duplicate_frame_drop_count} "
+                f"pair_waits={mismatched_pair_wait_count}"
+            ),
             "",
             "[PlaneInfo Latest]",
         ]
@@ -232,6 +467,46 @@ class UnrealAIPilotUDPClient:
     def _start_heartbeat(self) -> None:
         self._heartbeat_thread = threading.Thread(target=self._heartbeat_loop, daemon=True)
         self._heartbeat_thread.start()
+
+    def _start_control_worker(self) -> None:
+        self._control_thread = threading.Thread(
+            target=self._control_loop,
+            name="unreal-policy-worker",
+            daemon=True,
+        )
+        self._control_thread.start()
+
+    def _control_loop(self) -> None:
+        """Compute only the newest available state without blocking UDP RX."""
+        while self._running:
+            self._control_event.wait(timeout=0.2)
+            if not self._running:
+                break
+            with self._lock:
+                context = self._pending_control_context
+                generation = self._control_generation
+                self._pending_control_context = None
+                self._control_event.clear()
+            if context is None:
+                continue
+            try:
+                with self._policy_lock:
+                    cmd = self.command_policy.compute_command(context)
+            except Exception as exc:
+                # Preserve the last safe command and keep receiving; the
+                # exception remains visible instead of killing UDP service.
+                print(f"[CONTROL_WORKER_ERROR] {type(exc).__name__}: {exc}", file=sys.stderr)
+                continue
+            with self._lock:
+                if generation != self._control_generation:
+                    continue
+                self._cached_control = (
+                    float(cmd.roll_cmd),
+                    float(cmd.pitch_cmd),
+                    float(cmd.yaw_cmd),
+                    float(cmd.throttle_cmd),
+                )
+                self._control_compute_count += 1
 
     def _start_terminal_monitor(self) -> None:
         if not self.enable_terminal_monitor:
@@ -375,7 +650,10 @@ class UnrealAIPilotUDPClient:
             self.context.plane_id = packet.plane_id
             self._own_info_received = False
             self._enemy_info_received = False
-            self.command_policy.reset(self.context)
+            reset_context = copy.deepcopy(self.context)
+            self._reset_control_cache_locked()
+        with self._policy_lock:
+            self.command_policy.reset(reset_context)
 
     def _handle_init(self, packet: Init) -> None:
         with self._lock:
@@ -384,46 +662,99 @@ class UnrealAIPilotUDPClient:
             self.context.enemy_plane = PlaneSnapshot()
             self._own_info_received = False
             self._enemy_info_received = False
-            self.command_policy.reset(self.context)
+            reset_context = copy.deepcopy(self.context)
+            self._reset_control_cache_locked()
+        with self._policy_lock:
+            self.command_policy.reset(reset_context)
 
     def _handle_game_control(self, packet: GameControl) -> None:
         with self._lock:
             self.context.game_control = packet
 
     def _handle_plane_info(self, packet: PlaneInfo) -> None:
+        send_cmd: CMD | None = None
         with self._lock:
             if self.context.plane_id != -1 and packet.plane_id == self.context.plane_id:
-                if self.context.own_plane.is_valid and packet.index < self.context.own_plane.frame_index:
+                if self.context.own_plane.is_valid and packet.index <= self.context.own_plane.frame_index:
+                    if packet.index == self.context.own_plane.frame_index:
+                        self._duplicate_frame_drop_count += 1
                     return
                 self.context.own_plane.update(packet)
                 self._own_info_received = True
             else:
-                if self.context.enemy_plane.is_valid and packet.index < self.context.enemy_plane.frame_index:
+                if self.context.enemy_plane.is_valid and packet.index <= self.context.enemy_plane.frame_index:
+                    if packet.index == self.context.enemy_plane.frame_index:
+                        self._duplicate_frame_drop_count += 1
                     return
                 self.context.enemy_plane.update(packet)
                 self._enemy_info_received = True
 
-            self.context.frame_index = packet.index
-            should_send = self._own_info_received and self._enemy_info_received
+            # A CMD does not need to wait for both PlaneInfo packets. Reply to
+            # the first packet observed for each new server frame using the
+            # last completed control. Waiting for an exact own/enemy pair made
+            # a single delayed UDP packet count as a missed command in V1.2.
+            if packet.index > self._last_command_frame:
+                cached = self._cached_control
+                self._last_command_frame = packet.index
+                self._command_frame_count += 1
+                send_cmd = CMD(
+                    plane_id=self.context.plane_id,
+                    index=packet.index,
+                    roll_cmd=cached[0],
+                    pitch_cmd=cached[1],
+                    yaw_cmd=cached[2],
+                    throttle_cmd=cached[3],
+                )
 
-            if not should_send:
-                return
+            # Policy calculation still requires a coherent pair. It may run
+            # slower than 60 Hz, but it never controls command delivery.
+            if not (self.context.own_plane.is_valid and self.context.enemy_plane.is_valid):
+                context_copy = None
+            else:
+                own_frame = self.context.own_plane.frame_index
+                enemy_frame = self.context.enemy_plane.frame_index
+                if own_frame != enemy_frame:
+                    self._mismatched_pair_wait_count += 1
+                    context_copy = None
+                elif own_frame <= self._last_control_pair_frame:
+                    context_copy = None
+                else:
+                    self._last_control_pair_frame = own_frame
+                    self.context.frame_index = own_frame
+                    context_copy = RemoteClientContext(
+                        plane_id=self.context.plane_id,
+                        frame_index=own_frame,
+                        initial_state=copy.deepcopy(self.context.initial_state),
+                        own_plane=copy.deepcopy(self.context.own_plane),
+                        enemy_plane=copy.deepcopy(self.context.enemy_plane),
+                        game_control=copy.deepcopy(self.context.game_control),
+                    )
 
-            context_copy = RemoteClientContext(
-                plane_id=self.context.plane_id,
-                frame_index=self.context.frame_index,
-                initial_state=copy.deepcopy(self.context.initial_state),
-                own_plane=copy.deepcopy(self.context.own_plane),
-                enemy_plane=copy.deepcopy(self.context.enemy_plane),
-                game_control=copy.deepcopy(self.context.game_control),
-            )
             self._own_info_received = False
             self._enemy_info_received = False
+            if context_copy is not None:
+                # Replace, don't queue: the controller should always solve the
+                # newest geometry and never build latency by processing history.
+                self._pending_control_context = context_copy
+                self._control_event.set()
 
-        if self.command_delay_sec > 0:
-            time.sleep(self.command_delay_sec)
-        cmd = self.command_policy.compute_command(context_copy)
-        self.send_command(cmd)
+        if send_cmd is not None:
+            if self.command_delay_sec > 0:
+                time.sleep(self.command_delay_sec)
+            self.send_command(send_cmd)
+
+    def _reset_control_cache_locked(self) -> None:
+        """Reset round-local async state. Caller must hold ``self._lock``."""
+        self._control_generation += 1
+        self._pending_control_context = None
+        self._control_event.clear()
+        self._cached_control = (0.0, 0.0, 0.0, 1.0)
+        self._last_command_frame = -1
+        self._last_control_pair_frame = -1
+        self._control_compute_count = 0
+        self._command_frame_count = 0
+        self._duplicate_frame_drop_count = 0
+        self._mismatched_pair_wait_count = 0
 
     def _log_raw_damage_packet(self, message_type_value: int, buffer: bytes) -> None:
         if self._damage_log_writer is None:

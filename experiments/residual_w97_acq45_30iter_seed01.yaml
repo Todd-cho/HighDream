@@ -1,0 +1,107 @@
+name: residual_w97_acq45_30iter
+script: train_rllib
+
+output:
+  name: highdream
+  tag: residual_w97_acq45_30iter_seed01
+
+env:
+  target_mode: opponent_pool
+  reward_module: student.my_reward_residual_w97_v1
+  max_engage_time: 40.0
+  episode_step_limit: 400
+
+env_config:
+  residual_w97_enabled: true
+  step_ratio: 6
+  safety_override_enabled: true
+  reward:
+    altitude_soft_floor_m: 2400.0
+    altitude_hard_floor_m: 1200.0
+    damage_scale: 35.0
+    ata_scale: 0.05
+    range_scale: 0.25
+  opponent_pool_seed: 26082401
+  opponent_pool:
+    common:
+      cruise_altitude_m: 3048.0
+      cruise_speed_kcas: 260.0
+      max_bank_deg: 75.0
+      max_pitch_deg: 30.0
+    behaviors:
+      - {type: straight_level, weight: 0.5}
+      - {type: steady_turn, weight: 2.0}
+      - {type: scripted_pursuit, weight: 2.0}
+      - {type: vertical_weave, weight: 1.5}
+  residual_w97:
+    max_roll_scale: 0.10
+    max_pitch_scale: 0.20
+    max_throttle_scale: 0.10
+    gate_ata_deg: 45.0
+    gate_range_m: 2500.0
+    gate_min_threat_ata_deg: 30.0
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization:
+      {enabled: true, radius: 80.0, r_roll: 12.0, r_pitch: 8.0, r_heading: 6.0, speed_mps: 15.0}
+    target_randomization:
+      {enabled: true, radius: 100.0, r_roll: 18.0, r_pitch: 12.0, r_heading: 10.0, speed_mps: 20.0}
+    scenarios:
+      - {name: acq10_r800, weight: 1.0, ownship: [1000, 0, -3048, 0, 0, 0, 250], target: [1788, 139, -3048, 0, 0, 120, 245]}
+      - {name: acq20_r1200, weight: 2.0, ownship: [1000, 0, -3048, 0, 0, 0, 250], target: [2128, 410, -2998, 8, 0, 140, 255]}
+      - {name: acq30_r1600, weight: 3.0, ownship: [1000, 0, -3048, 0, 0, 0, 245], target: [2386, 800, -3128, -12, 0, 160, 260]}
+      - {name: acq40_r2200, weight: 3.0, ownship: [1000, 0, -3048, 0, 0, 0, 260], target: [2685, 1414, -2898, 15, 0, 190, 240]}
+      - {name: left_acq30_r1600, weight: 2.0, ownship: [1000, 0, -3048, 0, 0, 0, 250], target: [2386, -800, -3168, -10, 0, 200, 255]}
+      - {name: vertical_acq35, weight: 2.0, ownship: [1000, 0, -3048, 5, 0, 0, 250], target: [2393, 975, -2748, 18, 0, 170, 250]}
+  holdout_initial_scenario:
+    mode: two_circle_headon_mix
+    alpha_deg_choices: [0.0, 91.0]
+    alpha_deg_weights: [0.5, 0.5]
+    center_n_m: 3500.0
+    altitude_m: 3048.0
+    turn_diameter_ft: 6000.0
+    separation_jitter_ft: [3000.0, 6000.0]
+    speed_mps_range: [225.0, 285.0]
+    roll_range_deg: [0.0, 25.0]
+    vertical_pitch_choices_deg: [0.0, 12.0, -12.0]
+
+algo:
+  name: sac
+  framework: torch
+  lr: 2.0e-4
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 20000
+  mlp:
+    enabled: true
+    fcnet_hiddens: [256, 256]
+    fcnet_activation: relu
+    head_fcnet_hiddens: []
+    head_fcnet_activation: relu
+
+runtime:
+  iterations: 30
+  seed: 26082401
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 10
+  save_native_checkpoint: true
+  native_checkpoint_frequency: 10
+
+holdout_eval:
+  enabled: true
+  episodes: 8
+  max_engage_time: 120.0
+  seed: 990824001
+
+residual_auto_abort: false
+dashboard: {enabled: false}
+policy_probe: {enabled: false}
+engagement_log: {enabled: false}
+notes: "W97 residual pilot; trains the live ATA 20-45deg failure band with opponent and scenario diversity."

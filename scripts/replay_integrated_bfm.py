@@ -73,16 +73,22 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("log", type=Path)
     parser.add_argument("--rear-commit-deg", type=float, default=180.0)
+    parser.add_argument("--mode", choices=["default", "w53", "w56", "w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73", "w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w100", "w101"], default="default")
     args = parser.parse_args()
     with args.log.open("r", encoding="utf-8-sig", newline="") as handle:
         rows = [row for row in csv.DictReader(handle) if row.get("frame_index")]
     if not rows:
         raise SystemExit("no telemetry rows")
 
-    controller = IntegratedBFMController(IntegratedBFMConfig(
-        controller_name="replay",
-        guidance_rear_commit_deg=args.rear_commit_deg,
-    ))
+    if args.mode in {"w53", "w56", "w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73", "w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w100", "w101"}:
+        from types import SimpleNamespace
+        from run_unreal_inference import build_action_provider
+        controller = build_action_provider(SimpleNamespace(mode=args.mode))
+    else:
+        controller = IntegratedBFMController(IntegratedBFMConfig(
+            controller_name="replay",
+            guidance_rear_commit_deg=args.rear_commit_deg,
+        ))
     actions: list[np.ndarray] = []
     infos: list[dict] = []
     previous_enemy: tuple[float, float, float] | None = None
@@ -138,6 +144,80 @@ def main() -> None:
         f"{max(float(i['aim_az']) for i in infos):+.1f}] "
         f"threat_ata_min={min(float(i['threat_ata']) for i in infos):.1f}"
     )
+    rear_active = sum(bool(info.get("rear_rate_match_active", False)) for info in infos)
+    print(f"rear_rate_match_active_rows={rear_active}")
+    engagement_modes: dict[str, int] = {}
+    for info in infos:
+        mode = str(info.get("engagement_mode", ""))
+        engagement_modes[mode] = engagement_modes.get(mode, 0) + 1
+    print(f"engagement_modes={engagement_modes}")
+    advantage_reasons: dict[str, int] = {}
+    for info in infos:
+        reason = str(info.get("advantage_manager_reason", ""))
+        if reason:
+            advantage_reasons[reason] = advantage_reasons.get(reason, 0) + 1
+    if advantage_reasons:
+        scores = [float(info.get("advantage_score", 0.0)) for info in infos]
+        print(
+            f"advantage_reasons={advantage_reasons} "
+            f"score=[{min(scores):+.2f},{max(scores):+.2f}]"
+        )
+    lag_energy_rows = [
+        i for i, info in enumerate(infos)
+        if bool(info.get("lag_energy_preserve_active", False))
+    ]
+    if lag_energy_rows:
+        lag_throttles = action_array[lag_energy_rows, 3]
+        print(
+            f"lag_energy_rows={len(lag_energy_rows)} "
+            f"throttle=[{lag_throttles.min():.2f},"
+            f"{np.median(lag_throttles):.2f},{lag_throttles.max():.2f}]"
+        )
+    print(
+        "integrated_active_rows "
+        f"overshoot={sum(bool(i.get('overshoot_control_active', False)) for i in infos)} "
+        f"vertical={sum(bool(i.get('vertical_follow_active', False)) for i in infos)} "
+        f"energy={sum(bool(i.get('energy_deficit', False)) for i in infos)} "
+        f"mutual={sum(bool(i.get('mutual_commit_active', False)) for i in infos)} "
+        f"terminal={sum(bool(i.get('terminal_track_active', False)) for i in infos)}"
+    )
+    rate_bank_rows = [
+        i for i in infos if bool(i.get("rear_rate_match_active", False))
+    ]
+    if rate_bank_rows:
+        mismatches = sum(
+            float(i["target_bank"]) * float(i["target_yaw_rate"]) < 0.0
+            for i in rate_bank_rows
+            if abs(float(i["target_yaw_rate"])) >= 0.5
+        )
+        print(
+            "rear_rate_bank "
+            f"active={sum(bool(i.get('integrated_rate_bank_active', False)) for i in rate_bank_rows)} "
+            f"sign_mismatch={mismatches} "
+            f"mean_abs_bank={np.mean([abs(float(i['target_bank'])) for i in rate_bank_rows]):.1f}"
+        )
+    print(
+        "predictive "
+        f"active={sum(bool(i.get('predictive_guidance_active', False)) for i in infos)} "
+        f"override={sum(bool(i.get('predictive_override_active', False)) for i in infos)} "
+        f"spiral_recovery={sum(bool(i.get('spiral_recovery_active', False)) for i in infos)} "
+        f"overbank={sum(bool(i.get('rate_deficit_overbank_active', False)) for i in infos)}"
+    )
+    planner_manoeuvres: dict[str, int] = {}
+    for info in infos:
+        manoeuvre = str(info.get("planner3d_manoeuvre", "inactive"))
+        planner_manoeuvres[manoeuvre] = planner_manoeuvres.get(manoeuvre, 0) + 1
+    print(
+        "planner3d "
+        f"active={sum(bool(i.get('planner3d_active', False)) for i in infos)} "
+        f"replanned={sum(bool(i.get('planner3d_replanned', False)) for i in infos)} "
+        f"manoeuvres={planner_manoeuvres}"
+    )
+    sequence_phases: dict[str, int] = {}
+    for info in infos:
+        phase = str(info.get("sequential_maneuver_phase", "none"))
+        sequence_phases[phase] = sequence_phases.get(phase, 0) + 1
+    print(f"sequential_phases={sequence_phases}")
 
 
 if __name__ == "__main__":

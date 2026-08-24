@@ -42,8 +42,13 @@ from dogfight.ai.scripted_pursuit_provider import ScriptedPursuitActionProvider
 from dogfight.ai.opponent_pool_provider import OpponentPoolActionProvider
 from dogfight.ai.student_hooks import load_observation_hook, load_reward_hook
 from dogfight.ai.training.config_io import deep_update, load_experiment_env_config
-from dogfight.envs.residual_w53_env import ResidualW53Env
+try:
+    from dogfight.envs.residual_w53_env import ResidualW53Env
+except ModuleNotFoundError:
+    # Some handoff archives intentionally omit the superseded W53 pilot.
+    ResidualW53Env = None
 from dogfight.envs.residual_w56_env import ResidualW56Env
+from dogfight.envs.residual_w97_env import ResidualW97Env
 from dogfight.ai.training_record import save_training_record
 from dogfight.envs.initial_scenario import describe_initial_scenario
 from dogfight.envs.observation import (
@@ -220,15 +225,24 @@ def env_creator(env_config):
             seed=opponent_pool_seed,
             forced_sequence=cfg.get("opponent_forced_sequence"),
         )
-    if bool(cfg.get("residual_w53_enabled", False)) and bool(cfg.get("residual_w56_enabled", False)):
-        raise ValueError("residual_w53_enabled and residual_w56_enabled are mutually exclusive")
-    if bool(cfg.get("residual_w56_enabled", False)):
+    residual_modes = [
+        bool(cfg.get("residual_w53_enabled", False)),
+        bool(cfg.get("residual_w56_enabled", False)),
+        bool(cfg.get("residual_w97_enabled", False)),
+    ]
+    if sum(residual_modes) > 1:
+        raise ValueError("residual_w53/w56/w97 modes are mutually exclusive")
+    if bool(cfg.get("residual_w97_enabled", False)):
+        env_class = ResidualW97Env
+    elif bool(cfg.get("residual_w56_enabled", False)):
         env_class = ResidualW56Env
     elif bool(cfg.get("residual_w53_enabled", False)):
+        if ResidualW53Env is None:
+            raise RuntimeError("residual_w53_env.py is not present in this handoff")
         env_class = ResidualW53Env
     else:
         env_class = DogFightWrapper
-    if env_class in (ResidualW53Env, ResidualW56Env) and observation_hook is not None:
+    if env_class in tuple(x for x in (ResidualW53Env, ResidualW56Env, ResidualW97Env) if x is not None) and observation_hook is not None:
         raise ValueError(
             f"{env_class.__name__} owns its own observation; do not set observation_module"
         )

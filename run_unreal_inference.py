@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from pathlib import Path
 import sys
 
@@ -20,7 +21,12 @@ from dogfight.ai.hybrid_action_provider import HybridActionProvider
 from dogfight.ai.rllib_utils import build_algorithm_from_bundle
 from dogfight.ai.rl_action_provider import RLActionProvider
 from dogfight.ai.student_hooks import load_observation_hook
-from dogfight.unreal import AIType, ProviderCommandPolicy, UnrealAIPilotUDPClient
+from dogfight.unreal import (
+    AIType,
+    MultiprocessUnrealAIPilotUDPClient,
+    ProviderCommandPolicy,
+    UnrealAIPilotUDPClient,
+)
 from dogfight.unreal.policies import SafetyOverrideCommandPolicy, SafetyOverrideConfig
 
 # python run_unreal_inference.py --mode rl --bundle-dir artifacts\models\team01\v1 --team-name team01
@@ -28,7 +34,11 @@ from dogfight.unreal.policies import SafetyOverrideCommandPolicy, SafetyOverride
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Run RL/BT/Hybrid inference and communicate with the Unreal AI server over UDP.")
-    parser.add_argument("--mode", choices=["rl", "bt", "hybrid", "pulse", "w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15", "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23", "w24", "w25", "w26", "w27", "w28", "w29", "w30", "w31", "w32", "w33", "w34", "w35", "w36", "w37", "w38", "w39", "w40", "w41", "w42", "w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56", "w56rl", "w57", "w58", "w59", "w60", "w61", "w62"], required=True, help="Inference backend to use.")
+    parser.add_argument("--mode", choices=["rl", "bt", "hybrid", "pulse", "w1", "w2", "w3", "w4", "w5", "w6", "w7", "w8", "w9", "w10", "w11", "w12", "w13", "w14", "w15", "w16", "w17", "w18", "w19", "w20", "w21", "w22", "w23", "w24", "w25", "w26", "w27", "w28", "w29", "w30", "w31", "w32", "w33", "w34", "w35", "w36", "w37", "w38", "w39", "w40", "w41", "w42", "w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56", "w56rl", "w57", "w58", "w59", "w60", "w61", "w62", "w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73", "w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w94", "w95", "w96", "w97", "w97rl", "w98", "w99", "w100", "w101"], required=True, help="Inference backend to use.")
+    parser._option_string_actions["--mode"].choices.append("w102")
+    parser._option_string_actions["--mode"].choices.append("w103")
+    parser._option_string_actions["--mode"].choices.append("w104")
+    parser._option_string_actions["--mode"].choices.append("w105")
     parser.add_argument(
         "--pulse-sequence",
         choices=["roll", "pitch", "pitch_trim", "roll_inertia", "yaw"],
@@ -66,12 +76,21 @@ def parse_args():
     parser.add_argument("--command-delay-sec", type=float, default=0.0, help="Delay before replying with CMD after both PlaneInfo packets are ready.")
     parser.add_argument("--recv-timeout-sec", type=float, default=0.2, help="UDP socket receive timeout.")
     parser.add_argument(
+        "--multiprocess-transport",
+        action="store_true",
+        help=(
+            "Run UDP receive/send in a dedicated process, isolated from CPU-heavy "
+            "policy computation. Recommended for W97 and V1.2 delay-count tests."
+        ),
+    )
+    parser.add_argument(
         "--action-repeat",
         type=int,
-        default=6,
+        default=1,
         help=(
-            "Number of completed own/enemy PlaneInfo pairs to hold each action. "
-            "Use 6 to match Release training step_ratio=6; use 1 for per-packet policy calls."
+            "Number of asynchronous policy-worker updates to hold each action. "
+            "The UDP client independently replies at the server frame rate, so 1 is "
+            "the correct live default; larger values reduce controller bandwidth."
         ),
     )
     parser.add_argument(
@@ -233,10 +252,51 @@ def parse_args():
 
 
 def build_action_provider(args):
-    # W57-W62 are narrow derivatives of W56.  Resolve them through the W56
+    # W57-W63 are narrow derivatives of W56.  Resolve them through the W56
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w97rl":
+        if args.bundle_dir is None:
+            raise ValueError("--bundle-dir is required for w97rl mode")
+        from dogfight.ai.rule_profiles import build_w97_controller
+        from dogfight.ai.w56_residual_action_provider import W56ResidualActionProvider
+        return W56ResidualActionProvider(
+            bundle_dir=args.bundle_dir,
+            algorithm_factory=build_algorithm_from_bundle,
+            policy_id=args.policy_id,
+            roll_scale=0.10,
+            pitch_scale=0.20,
+            throttle_scale=0.10,
+            gate_ata_deg=45.0,
+            gate_range_m=2500.0,
+            gate_min_threat_ata_deg=30.0,
+            force_zero_residual=args.w56rl_zero_residual,
+            rule_provider=build_w97_controller(),
+        )
+
+    if requested_mode == "w94":
+        if args.bundle_dir is None:
+            raise ValueError("--bundle-dir is required for w94 mode")
+        from dogfight.ai.w56_residual_action_provider import W56ResidualActionProvider
+        base_args = copy.copy(args)
+        base_args.mode = "w93"
+        w93_rule = build_action_provider(base_args)
+        w93_rule.cfg.terminal_track_min_threat_ata_deg = 40.0
+        return W56ResidualActionProvider(
+            bundle_dir=args.bundle_dir,
+            algorithm_factory=build_algorithm_from_bundle,
+            policy_id=args.policy_id,
+            roll_scale=0.15,
+            pitch_scale=0.25,
+            throttle_scale=0.15,
+            gate_ata_deg=20.0,
+            gate_range_m=3000.0,
+            gate_min_threat_ata_deg=40.0,
+            force_zero_residual=args.w56rl_zero_residual,
+            rule_provider=w93_rule,
+        )
 
     if requested_mode == "w56rl":
         if args.bundle_dir is None:
@@ -250,7 +310,13 @@ def build_action_provider(args):
             force_zero_residual=args.w56rl_zero_residual,
         )
 
-    if requested_mode in ("w57", "w58", "w59", "w60", "w61", "w62"):
+    if requested_mode in ("w102", "w103", "w104", "w105"):
+        args.mode = "w53"
+    if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101"):
+        # New predictive branch starts from the proven W53 attack geometry,
+        # not from the stability-oriented W56/W69 family.
+        args.mode = "w53"
+    elif requested_mode in ("w57", "w58", "w59", "w60", "w61", "w62", "w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
         args.mode = "w56"
 
     if args.mode == "bt":
@@ -431,7 +497,449 @@ def build_action_provider(args):
                     0.90 if args.mode in ("w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56") else 0.0
                 ),
             ))
-            if requested_mode in ("w57", "w58", "w59", "w60", "w61", "w62"):
+            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105"):
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = True
+                controller.cfg.predictive_guidance_min_ata_deg = 20.0
+                controller.cfg.predictive_horizon_min_s = 0.8
+                controller.cfg.predictive_horizon_max_s = 3.0
+                controller.cfg.predictive_candidate_count = 15
+                controller.cfg.predictive_turn_limit_degps = 15.0
+                controller.cfg.predictive_min_separation_m = 650.0
+                controller.cfg.predictive_max_separation_m = 2600.0
+                controller.cfg.predictive_too_close_weight = 0.025
+                controller.cfg.predictive_far_weight = 0.0015
+                controller.cfg.predictive_rate_change_weight = 0.04
+                controller.cfg.predictive_low_energy_speed_mps = 180.0
+                controller.cfg.predictive_low_energy_turn_weight = 0.06
+            if requested_mode == "w75":
+                # Shadow W53 and override only when a reachable alternative
+                # wins by a large margin. 12deg/s is the live measured plant
+                # ceiling; W74's assumed 15deg/s was not achievable.
+                controller.cfg.predictive_turn_limit_degps = 12.0
+                controller.cfg.predictive_override_min_score_gain = 60.0
+                controller.cfg.predictive_override_min_rate_delta_degps = 5.0
+            if requested_mode == "w76":
+                controller.cfg.predictive_turn_limit_degps = 17.0
+                controller.cfg.predictive_live_turn_envelope = True
+                controller.cfg.predictive_response_delay_s = 0.30
+                controller.cfg.predictive_override_min_score_gain = 60.0
+                controller.cfg.predictive_override_min_rate_delta_degps = 5.0
+                controller.cfg.spiral_recovery_enabled = True
+            if requested_mode == "w77":
+                # Single-variable W53 derivative: live W76 crossed twice at
+                # ~400m/s closure while the old 750m lag cap was saturated.
+                # Aim farther behind the target only inside the pre-existing
+                # high-closure lag gate; all roll/pitch/manager logic remains
+                # the frozen W53 baseline.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+            if requested_mode == "w78":
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+            if requested_mode == "w79":
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 8.0
+                # Do not call a mutual nose-on pass a terminal gun solution.
+                # Release lag more slowly, then enter fine track only after
+                # the target can no longer point back at us.
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+            if requested_mode == "w80":
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+            if requested_mode == "w84":
+                # Exact W80 geometry plus one measured actuator change.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                controller.cfg.turn_rudder_assist = 0.60
+            if requested_mode == "w85":
+                # W80 geometry, maximum rudder-authority ceiling test.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                controller.cfg.turn_rudder_assist = 1.00
+            if requested_mode == "w86":
+                # W80 geometry with exclusive, event-driven manoeuvre phases.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                controller.cfg.sequential_maneuver_enabled = True
+            if requested_mode == "w87":
+                # W80 geometry at the measured live max-rate speed band.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                controller.cfg.turn_rudder_assist = 1.00
+                controller.cfg.high_bank_target_speed_mps = 195.0
+            if requested_mode == "w88":
+                # W87 corner-speed control plus a relative-advantage manager
+                # derived from BFM gun-cone/risk/energy scoring research.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 350.0
+                controller.cfg.lag_pursuit_offset_max_m = 1400.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 650.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 40.0
+                controller.cfg.turn_rudder_assist = 0.60
+                controller.cfg.high_bank_target_speed_mps = 195.0
+                controller.cfg.advantage_manager_enabled = True
+                controller.cfg.advantage_min_attack_ttc_s = 2.5
+                controller.cfg.terminal_track_min_threat_ata_deg = 0.0
+                controller.cfg.lag_pursuit_taper_max_closure_mps = 140.0
+                controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
+                controller.cfg.lag_pursuit_energy_throttle_base = 0.55
+                controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
+            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105"):
+                # Research VPP controller: W88 energy preservation with
+                # continuous lag-to-pure blending and a real gun-WEZ defense.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.lag_pursuit_offset_min_m = 250.0
+                controller.cfg.lag_pursuit_offset_max_m = 800.0
+                controller.cfg.lag_pursuit_offset_gain_s = 2.5
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 450.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 30.0
+                controller.cfg.lag_pursuit_taper_max_closure_mps = 140.0
+                controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
+                controller.cfg.lag_pursuit_energy_throttle_base = 0.55
+                controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
+                controller.cfg.lag_pursuit_disable_defensive = True
+                controller.cfg.lag_pursuit_advantage_full_deg = 20.0
+                controller.cfg.lag_pursuit_scale_tau_s = 0.6
+                controller.cfg.turn_rudder_assist = 0.60
+                controller.cfg.high_bank_target_speed_mps = 195.0
+                controller.cfg.advantage_manager_enabled = True
+                controller.cfg.advantage_min_attack_ttc_s = 2.5
+                controller.cfg.terminal_track_min_threat_ata_deg = 0.0
+                # The paper's gun WEZ is roughly 5deg/1500m. Use a wider
+                # 15deg defensive gate for latency, but do not treat a 30deg
+                # nose position as an immediate firing threat.
+                controller.cfg.defensive_threat_ata_deg = 15.0
+                controller.cfg.defensive_range_m = 1600.0
+                controller.cfg.defensive_closure_mps = 0.0
+                controller.cfg.defensive_min_hold_s = 0.8
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 15.0
+                controller.cfg.defensive_escape_own_ata_deg = 20.0
+                controller.cfg.defensive_escape_range_m = 1600.0
+                controller.cfg.defensive_escape_gamma_deg = 20.0
+                controller.cfg.defensive_escape_switch_s = 1.8
+                controller.cfg.defensive_escape_floor_m = 2500.0
+                if requested_mode == "w98":
+                    # W89 reproducibly called a mutual nose-on pass offensive:
+                    # at R=1497m/closure=308mps own ATA was 21deg but threat
+                    # ATA was only 18.8deg. Keep W89 unchanged everywhere else
+                    # and retain lag pursuit until the opponent can no longer
+                    # point nearly directly back at us.
+                    controller.cfg.terminal_track_min_threat_ata_deg = 30.0
+                if requested_mode == "w100":
+                    controller.cfg.attack_conversion_enabled = True
+                if requested_mode == "w101":
+                    controller.cfg.attack_conversion_enabled = True
+                    controller.cfg.formula_vpp_enabled = True
+                    controller.cfg.lag_pursuit_offset_max_m = 0.0
+                    controller.cfg.terminal_track_min_threat_ata_deg = 30.0
+                if requested_mode in ("w102", "w103", "w104", "w105"):
+                    # W100 plus horizontal turn-circle and CPA pursuit-state
+                    # transitions. Preserve W100's proven vertical loop.
+                    controller.cfg.attack_conversion_enabled = True
+                    controller.cfg.formula_vpp_enabled = True
+                    controller.cfg.formula_vpp_turn_circle_enabled = True
+                    controller.cfg.formula_vpp_turn_circle_horizon_s = 0.8
+                    controller.cfg.formula_vpp_vertical_enabled = False
+                    controller.cfg.formula_vpp_transition_rate_per_s = 1.2
+                    controller.cfg.formula_vpp_lag_distance_m = 650.0
+                    controller.cfg.formula_vpp_mutual_lateral_m = 450.0
+                    controller.cfg.terminal_track_min_threat_ata_deg = 30.0
+                if requested_mode in ("w103", "w104", "w105"):
+                    controller.cfg.formula_vpp_recommit_enabled = True
+                    controller.cfg.formula_vpp_recommit_hold_s = 1.8
+                    controller.cfg.formula_vpp_recommit_arm_s = 8.0
+                    controller.cfg.formula_vpp_recommit_pass_range_m = 1000.0
+                if requested_mode == "w104":
+                    # Full research stack: exact ballistic TOF + acceleration
+                    # lead, APG gun-axis blend, specific-energy vertical
+                    # exchange, ZEM defensive side selection, and a small
+                    # moving-horizon candidate set. W103 remains untouched.
+                    controller.cfg.formula_ballistic_tof_enabled = True
+                    controller.cfg.formula_apg_enabled = True
+                    controller.cfg.formula_apg_gain = 0.70
+                    controller.cfg.formula_energy_vertical_enabled = True
+                    controller.cfg.formula_energy_gamma_gain_deg_per_m = 0.004
+                    controller.cfg.formula_energy_gamma_limit_deg = 8.0
+                    controller.cfg.formula_zem_defense_enabled = True
+                    controller.cfg.formula_zem_horizon_s = 1.2
+                    controller.cfg.formula_zem_lateral_accel_mps2 = 22.0
+                    controller.cfg.formula_zem_turn_rate_degps = 16.0
+                    controller.cfg.formula_zem_sign_hold_s = 0.6
+                    controller.cfg.formula_zem_max_burst_s = 1.0
+                    controller.cfg.formula_zem_cooldown_s = 2.5
+                    controller.cfg.formula_zem_exit_closure_mps = -10.0
+                    controller.cfg.formula_rate_bank_authority = True
+                    controller.cfg.predictive_guidance_enabled = True
+                    controller.cfg.predictive_adversarial_enabled = True
+                    controller.cfg.predictive_candidate_count = 5
+                    controller.cfg.predictive_horizon_min_s = 0.8
+                    controller.cfg.predictive_horizon_max_s = 0.8
+                    controller.cfg.predictive_override_min_score_gain = 2.0
+                    controller.cfg.predictive_guidance_min_ata_deg = 25.0
+                    controller.cfg.predictive_guidance_max_ata_deg = 70.0
+                    controller.cfg.predictive_rule_sign_guard_enabled = True
+                    controller.cfg.predictive_max_rule_delta_degps = 3.0
+                    # Live plant audit (run0191): the old JSBSim-derived
+                    # 195 m/s target cut throttle to 0.27 while the opponent
+                    # sustained 214-224 m/s and 12-13 deg/s. Preserve live
+                    # turn energy before changing the common opening logic.
+                    controller.cfg.high_bank_target_speed_mps = 220.0
+                    controller.cfg.lag_pursuit_energy_target_speed_mps = 220.0
+                if requested_mode == "w105":
+                    # Clean W103 derivative. Live W104 showed that the full
+                    # ZEM/predictive stack prevented every attack transition;
+                    # retain W103's demonstrated reacquisition geometry and
+                    # change only the live-measured energy target.
+                    controller.cfg.high_bank_target_speed_mps = 220.0
+                    controller.cfg.lag_pursuit_energy_target_speed_mps = 220.0
+            if requested_mode in ("w90", "w91", "w92", "w93", "w95", "w96", "w97", "w99"):
+                # W89 plus a one-second, trajectory-weighted min-max
+                # predictor derived from differential-game research.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = True
+                controller.cfg.predictive_adversarial_enabled = True
+                controller.cfg.predictive_guidance_min_ata_deg = 25.0
+                controller.cfg.predictive_horizon_min_s = 1.0
+                controller.cfg.predictive_horizon_max_s = 1.0
+                controller.cfg.predictive_candidate_count = 13
+                controller.cfg.predictive_turn_limit_degps = 17.0
+                controller.cfg.predictive_live_turn_envelope = True
+                controller.cfg.predictive_response_delay_s = 0.15
+                controller.cfg.predictive_turn_slew_degps2 = 40.0
+                controller.cfg.predictive_override_min_score_gain = 1.5
+                controller.cfg.predictive_override_min_rate_delta_degps = 1.0
+                controller.cfg.predictive_target_turn_limit_degps = 18.0
+                controller.cfg.predictive_threat_cone_deg = 30.0
+                controller.cfg.predictive_threat_weight = 1.5
+                controller.cfg.predictive_midpoint_weight = 0.65
+                controller.cfg.lag_pursuit_offset_min_m = 250.0
+                controller.cfg.lag_pursuit_offset_max_m = 800.0
+                controller.cfg.lag_pursuit_offset_gain_s = 2.5
+                controller.cfg.lag_pursuit_terminal_taper_start_deg = 35.0
+                controller.cfg.lag_pursuit_terminal_taper_end_deg = 20.0
+                controller.cfg.lag_pursuit_mutual_lateral_offset_m = 450.0
+                controller.cfg.lag_pursuit_mutual_threat_ata_deg = 30.0
+                controller.cfg.lag_pursuit_taper_max_closure_mps = 140.0
+                controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
+                controller.cfg.lag_pursuit_energy_throttle_base = 0.55
+                controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
+                controller.cfg.lag_pursuit_disable_defensive = True
+                controller.cfg.lag_pursuit_advantage_full_deg = 20.0
+                controller.cfg.lag_pursuit_scale_tau_s = 0.6
+                controller.cfg.turn_rudder_assist = 0.60
+                controller.cfg.high_bank_target_speed_mps = 195.0
+                controller.cfg.high_bank_dynamic_speed_enabled = True
+                controller.cfg.high_bank_dynamic_near_range_m = 1500.0
+                controller.cfg.high_bank_dynamic_far_range_m = 3000.0
+                controller.cfg.high_bank_dynamic_target_margin_mps = 10.0
+                controller.cfg.high_bank_dynamic_max_speed_mps = 265.0
+                controller.cfg.advantage_manager_enabled = True
+                controller.cfg.advantage_min_attack_ttc_s = 2.5
+                controller.cfg.terminal_track_min_threat_ata_deg = 0.0
+                controller.cfg.defensive_threat_ata_deg = 15.0
+                controller.cfg.defensive_range_m = 1600.0
+                controller.cfg.defensive_closure_mps = 0.0
+                controller.cfg.defensive_min_hold_s = 0.8
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 15.0
+                controller.cfg.defensive_escape_own_ata_deg = 20.0
+                controller.cfg.defensive_escape_range_m = 1600.0
+                controller.cfg.defensive_escape_gamma_deg = 20.0
+                controller.cfg.defensive_escape_switch_s = 1.8
+                controller.cfg.defensive_escape_floor_m = 2500.0
+                if requested_mode == "w99":
+                    # Selective hybrid: keep W89/W98 reactive control as the
+                    # default. The W90 predictor may intervene only after the
+                    # opponent's nose is no longer pointed at us and only in
+                    # the close conversion band. This prevents W90's observed
+                    # 81% override rate from replacing the fast baseline.
+                    controller.cfg.terminal_track_min_threat_ata_deg = 30.0
+                    controller.cfg.predictive_guidance_min_ata_deg = 20.0
+                    controller.cfg.predictive_guidance_max_ata_deg = 80.0
+                    controller.cfg.predictive_guidance_max_range_m = 2500.0
+                    controller.cfg.predictive_guidance_min_threat_ata_deg = 30.0
+                    controller.cfg.predictive_override_min_score_gain = 3.0
+                    controller.cfg.predictive_override_min_rate_delta_degps = 2.0
+                if requested_mode in ("w91", "w92", "w93"):
+                    controller.cfg.predictive_sign_guard_error_deg = 45.0
+                if requested_mode in ("w92", "w93"):
+                    # A low threat-ATA is a head-on pass, not a rear-quarter
+                    # firing solution. Keep manoeuvring until the target nose
+                    # is at least 60deg away before entering terminal track.
+                    controller.cfg.terminal_track_min_threat_ata_deg = 60.0
+                if requested_mode == "w93":
+                    controller.cfg.predictive_rear_geometry_weight = 0.55
+                    controller.cfg.predictive_rear_geometry_range_m = 3000.0
+                if requested_mode in ("w95", "w96", "w97"):
+                    # Full 3-D receding-horizon BFM. Preserve W89's measured
+                    # actuator/energy envelope, but replace W90-W93's 2-D
+                    # yaw-only min-max override and periodic vertical escape
+                    # with one coupled manoeuvre decision.
+                    controller.cfg.predictive_guidance_enabled = False
+                    controller.cfg.planner3d_enabled = True
+                    controller.cfg.planner3d_horizon_s = 2.5
+                    controller.cfg.planner3d_turn_limit_degps = 16.0
+                    controller.cfg.planner3d_target_turn_limit_degps = 18.0
+                    controller.cfg.planner3d_gamma_deg = 24.0
+                    controller.cfg.planner3d_target_gamma_deg = 22.0
+                    controller.cfg.planner3d_manoeuvre_hold_s = 0.65
+                    controller.cfg.defensive_vertical_escape = False
+                    controller.cfg.defensive_min_hold_s = 1.2
+                    controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                    controller.cfg.throttle_min = 0.35
+                    if requested_mode in ("w96", "w97"):
+                        controller.cfg.planner3d_adaptive_horizon = True
+                        controller.cfg.planner3d_reachable_target_envelope = True
+                        controller.cfg.planner3d_emergency_replan = True
+                        controller.cfg.planner3d_manoeuvre_hold_s = 0.35
+                        controller.cfg.planner3d_emergency_hold_s = 0.15
+                    if requested_mode == "w97":
+                        controller.cfg.planner3d_research_scoring = True
+            if requested_mode == "w81":
+                # Reactive two-mode controller: evade an actual nose-on
+                # threat; otherwise point at the aircraft itself instead of a
+                # rear/lag proxy. Keep only a tiny latency compensation.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.use_constant_turn_prediction = False
+                controller.cfg.adaptive_turn_prediction = False
+                controller.cfg.horizon_merge_s = 0.10
+                controller.cfg.horizon_break_s = 0.10
+                controller.cfg.horizon_defensive_s = 0.0
+                controller.cfg.horizon_reacquire_max_s = 0.15
+                controller.cfg.horizon_track_max_s = 0.10
+                controller.cfg.horizon_weapons_s = 0.0
+                controller.cfg.lag_pursuit_offset_max_m = 0.0
+                controller.cfg.vertical_alignment_elevation_deg = 0.0
+                controller.cfg.defensive_threat_ata_deg = 30.0
+                controller.cfg.defensive_range_m = 2400.0
+                controller.cfg.defensive_closure_mps = 40.0
+                controller.cfg.defensive_min_hold_s = 1.5
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 30.0
+                controller.cfg.defensive_escape_own_ata_deg = 45.0
+                controller.cfg.defensive_escape_range_m = 2400.0
+                controller.cfg.defensive_escape_gamma_deg = 25.0
+            if requested_mode == "w82":
+                # Reactive manager with rate-aware short lead. Pure pursuit
+                # cannot close ATA against a target turning faster than us;
+                # predict only a bounded fraction of its measured turn.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.use_constant_turn_prediction = True
+                controller.cfg.adaptive_turn_prediction = True
+                controller.cfg.turn_prediction_max_arc_deg = 12.0
+                controller.cfg.turn_prediction_unstable_horizon_s = 0.20
+                controller.cfg.turn_prediction_min_stable_s = 0.5
+                controller.cfg.horizon_merge_s = 0.10
+                controller.cfg.horizon_break_s = 0.35
+                controller.cfg.horizon_defensive_s = 0.0
+                controller.cfg.horizon_reacquire_max_s = 0.80
+                controller.cfg.horizon_track_max_s = 0.35
+                controller.cfg.horizon_weapons_s = 0.0
+                controller.cfg.lag_pursuit_offset_max_m = 0.0
+                controller.cfg.vertical_alignment_elevation_deg = 0.0
+                controller.cfg.defensive_threat_ata_deg = 30.0
+                controller.cfg.defensive_range_m = 2400.0
+                controller.cfg.defensive_closure_mps = 40.0
+                controller.cfg.defensive_min_hold_s = 1.5
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 30.0
+                controller.cfg.defensive_escape_own_ata_deg = 45.0
+                controller.cfg.defensive_escape_range_m = 2400.0
+                controller.cfg.defensive_escape_gamma_deg = 25.0
+                controller.cfg.defensive_escape_floor_m = 2500.0
+            if requested_mode == "w83":
+                # W82 reactive manager plus a bounded 3-D rate-deficit move.
+                controller.cfg.controller_name = requested_mode
+                controller.cfg.predictive_guidance_enabled = False
+                controller.cfg.use_constant_turn_prediction = True
+                controller.cfg.adaptive_turn_prediction = True
+                controller.cfg.turn_prediction_max_arc_deg = 12.0
+                controller.cfg.turn_prediction_unstable_horizon_s = 0.20
+                controller.cfg.turn_prediction_min_stable_s = 0.5
+                controller.cfg.horizon_merge_s = 0.10
+                controller.cfg.horizon_break_s = 0.35
+                controller.cfg.horizon_defensive_s = 0.0
+                controller.cfg.horizon_reacquire_max_s = 0.80
+                controller.cfg.horizon_track_max_s = 0.35
+                controller.cfg.horizon_weapons_s = 0.0
+                controller.cfg.lag_pursuit_offset_max_m = 0.0
+                controller.cfg.vertical_alignment_elevation_deg = 0.0
+                controller.cfg.defensive_threat_ata_deg = 30.0
+                controller.cfg.defensive_range_m = 2400.0
+                controller.cfg.defensive_closure_mps = 40.0
+                controller.cfg.defensive_min_hold_s = 1.5
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 30.0
+                controller.cfg.defensive_escape_own_ata_deg = 45.0
+                controller.cfg.defensive_escape_range_m = 2400.0
+                controller.cfg.defensive_escape_gamma_deg = 25.0
+                controller.cfg.defensive_escape_floor_m = 2500.0
+                controller.cfg.rate_deficit_overbank_enabled = True
+            if requested_mode in ("w57", "w58", "w59", "w60", "w61", "w62", "w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
                 controller.cfg.controller_name = requested_mode
                 controller.cfg.terminal_pitch_los_rate_gain = 1.5
             if requested_mode == "w58":
@@ -468,6 +976,106 @@ def build_action_provider(args):
                 controller.cfg.post_defense_conversion_rear_offset_m = 1500.0
                 controller.cfg.post_defense_conversion_lateral_offset_m = 800.0
                 controller.cfg.post_defense_conversion_min_target_speed_mps = 40.0
+            if requested_mode in ("w63", "w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
+                # Live-derived post-merge fix. W56 reacquire requested at
+                # most 11deg/s while the opponent sustained about 12.1deg/s.
+                # Match the stable measured target circle and add a bounded
+                # closing margin. Pitch/throttle/altitude logic is unchanged.
+                controller.cfg.rear_rate_match_enabled = True
+                controller.cfg.rear_rate_match_ata_deg = 90.0
+                controller.cfg.rear_rate_match_min_target_rate_degps = 2.5
+                controller.cfg.rear_rate_match_target_gain = 1.0
+                controller.cfg.rear_rate_match_error_gain = 0.04
+                controller.cfg.rear_rate_match_max_error_deg = 90.0
+                controller.cfg.rear_rate_match_limit_degps = 15.0
+            if requested_mode in ("w64", "w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
+                # Integrated manager: retain W56's estimator and flight-control
+                # calibration, but resolve tactical priorities using all live
+                # rate, geometry, vertical, closure, and energy signals.
+                controller.cfg.integrated_manager_enabled = True
+                controller.cfg.terminal_track_min_threat_ata_deg = 80.0
+                controller.cfg.defensive_vertical_escape = True
+                controller.cfg.defensive_escape_threat_ata_deg = 20.0
+                controller.cfg.defensive_escape_own_ata_deg = 60.0
+                controller.cfg.defensive_escape_range_m = 1800.0
+                controller.cfg.defensive_escape_gamma_deg = 24.0
+                controller.cfg.integrated_postmerge_ata_deg = 70.0
+                controller.cfg.integrated_overshoot_ata_deg = 35.0
+                controller.cfg.integrated_overshoot_range_m = 2200.0
+                controller.cfg.integrated_overshoot_closure_mps = 60.0
+                controller.cfg.integrated_energy_speed_margin_mps = 25.0
+                controller.cfg.integrated_energy_pull_scale = 0.65
+                controller.cfg.integrated_vertical_elevation_deg = 12.0
+                controller.cfg.integrated_vertical_range_m = 3200.0
+            if requested_mode in ("w65", "w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
+                # W64 diagnosed that rate guidance was computed correctly but
+                # then overwritten by the direct-course bank branch. Preserve
+                # the integrated manager and give rate modes bank authority.
+                controller.cfg.integrated_rate_bank_authority = True
+            if requested_mode in ("w66", "w67", "w68", "w69", "w70", "w71", "w72", "w73"):
+                # Use direct intercept while far off-axis; only transition to
+                # rate matching after the nose has entered a recoverable cone.
+                controller.cfg.rear_rate_match_ata_deg = 35.0
+                controller.cfg.integrated_rate_bank_max_ata_deg = 60.0
+            if requested_mode == "w67":
+                # W66 repeatedly reached ATA 36-49deg only after closure had
+                # grown above 300m/s. Start lag/energy management one phase
+                # earlier so the aircraft does not fly through the solution.
+                controller.cfg.lag_pursuit_ata_deg = 80.0
+                controller.cfg.lag_pursuit_range_m = 4000.0
+                controller.cfg.lag_pursuit_closure_mps = 100.0
+                controller.cfg.lag_pursuit_offset_min_m = 600.0
+                controller.cfg.lag_pursuit_offset_max_m = 1800.0
+                controller.cfg.lag_pursuit_offset_gain_s = 4.0
+                controller.cfg.integrated_overshoot_ata_deg = 60.0
+                controller.cfg.integrated_overshoot_range_m = 3000.0
+                controller.cfg.integrated_overshoot_closure_mps = 120.0
+                controller.cfg.closure_throttle_ata_deg = 80.0
+                controller.cfg.closure_throttle_range_m = 5000.0
+                controller.cfg.closure_throttle_far_range_m = 3500.0
+                controller.cfg.closure_throttle_near_range_m = 2000.0
+                controller.cfg.closure_target_far_mps = 80.0
+                controller.cfg.closure_target_mid_mps = 30.0
+                controller.cfg.closure_target_near_mps = 0.0
+                controller.cfg.closure_throttle_gain = 0.007
+            if requested_mode in ("w68", "w69", "w70", "w71", "w72", "w73"):
+                # Middle point between late W66 and over-aggressive W67. This
+                # derives from W66 (the W67 block above is not entered).
+                controller.cfg.lag_pursuit_ata_deg = 65.0
+                controller.cfg.lag_pursuit_range_m = 3500.0
+                controller.cfg.lag_pursuit_closure_mps = 150.0
+                controller.cfg.lag_pursuit_offset_min_m = 400.0
+                controller.cfg.lag_pursuit_offset_max_m = 1000.0
+                controller.cfg.lag_pursuit_offset_gain_s = 2.5
+                controller.cfg.integrated_overshoot_ata_deg = 50.0
+                controller.cfg.integrated_overshoot_range_m = 2600.0
+                controller.cfg.integrated_overshoot_closure_mps = 200.0
+                controller.cfg.integrated_energy_gamma_guard_speed_mps = 180.0
+            if requested_mode in ("w69", "w70", "w71", "w72", "w73"):
+                controller.cfg.integrated_vertical_follow_ata_deg = 60.0
+            if requested_mode in ("w70", "w71", "w72"):
+                controller.cfg.integrated_mutual_commit_enabled = True
+                controller.cfg.integrated_mutual_commit_ata_deg = 35.0
+                controller.cfg.integrated_mutual_commit_range_m = 1500.0
+                controller.cfg.integrated_mutual_commit_min_closure_mps = 150.0
+                controller.cfg.terminal_track_enter_ata_deg = 30.0
+                controller.cfg.terminal_track_enter_range_m = 1200.0
+                controller.cfg.terminal_track_prelock_ata_deg = 35.0
+                controller.cfg.terminal_track_prelock_range_m = 1500.0
+            if requested_mode in ("w71", "w72"):
+                controller.cfg.integrated_mutual_commit_ata_deg = 45.0
+                controller.cfg.integrated_mutual_commit_range_m = 2200.0
+                controller.cfg.terminal_track_prelock_ata_deg = 45.0
+                controller.cfg.terminal_track_prelock_range_m = 2200.0
+            if requested_mode == "w72":
+                controller.cfg.integrated_mutual_commit_ata_deg = 55.0
+                controller.cfg.terminal_track_exit_ata_deg = 55.0
+                controller.cfg.terminal_track_exit_range_m = 2600.0
+            if requested_mode == "w73":
+                # Branch from W69, not W70-W72: preserve the existing
+                # intercept/overshoot law through a nose-on threat without
+                # widening terminal tracking beyond its trained fine cone.
+                controller.cfg.integrated_overshoot_allow_defensive = True
             return controller
         if args.mode == "w39":
             # W33 acquisition unchanged; only after a valid rear-quarter
@@ -1613,7 +2221,16 @@ def main():
                 f"hard_floor_m={args.safety_override_hard_floor_m} "
                 f"min_altitude_m={args.safety_override_min_altitude_m}"
             )
-        client = UnrealAIPilotUDPClient(
+        client_class = (
+            MultiprocessUnrealAIPilotUDPClient
+            if args.multiprocess_transport
+            else UnrealAIPilotUDPClient
+        )
+        print(
+            "[transport] "
+            + ("multiprocess (isolated UDP)" if args.multiprocess_transport else "threaded")
+        )
+        client = client_class(
             command_policy=command_policy,
             server_ip=args.server_ip,
             server_port=args.server_port,
@@ -1630,6 +2247,8 @@ def main():
 
         try:
             client.run()
+        except KeyboardInterrupt:
+            print("\n[client] stopped by Ctrl+C")
         finally:
             action_provider.close()
 

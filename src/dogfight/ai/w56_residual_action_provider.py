@@ -68,6 +68,7 @@ class W56ResidualActionProvider(ActionProvider):
         safety_time_horizon_s: float = 15.0,
         safety_hard_floor_m: float = 400.0,
         min_altitude_m: float = 304.8,
+        rule_provider: ActionProvider | None = None,
     ):
         self.policy_id = policy_id
         self.roll_scale = float(roll_scale)
@@ -84,9 +85,12 @@ class W56ResidualActionProvider(ActionProvider):
         self.min_altitude_m = float(min_altitude_m)
         self.bundle_dir = str(Path(bundle_dir).resolve())
 
-        cfg = build_w56_config()
-        cfg.terminal_pitch_los_rate_gain = float(terminal_pitch_los_rate_gain)
-        self.rule = IntegratedBFMController(cfg)
+        if rule_provider is None:
+            cfg = build_w56_config()
+            cfg.terminal_pitch_los_rate_gain = float(terminal_pitch_los_rate_gain)
+            self.rule = IntegratedBFMController(cfg)
+        else:
+            self.rule = rule_provider
         self.geometry = GeometryInfo()
         self._previous_raw_residual = np.zeros(3, dtype=np.float32)
         self._previous_altitude: float | None = None
@@ -227,9 +231,8 @@ class W56ResidualActionProvider(ActionProvider):
             "bundle_id": self.bundle_dir,
             "safety_override_active": danger,
         }
-        return ActionResult(action=combined, source="w56rl", confidence=1.0, info=info)
+        return ActionResult(action=combined, source="residual_rl", confidence=1.0, info=info)
 
     def close(self) -> None:
         if hasattr(self.algorithm, "stop"):
             self.algorithm.stop()
-
