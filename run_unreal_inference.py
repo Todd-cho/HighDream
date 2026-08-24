@@ -40,6 +40,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w104")
     parser._option_string_actions["--mode"].choices.append("w105")
     parser._option_string_actions["--mode"].choices.append("w106")
+    parser._option_string_actions["--mode"].choices.append("w107")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -340,7 +341,7 @@ def build_action_provider(args):
 
     if requested_mode in ("w102", "w103", "w104", "w105", "w106"):
         args.mode = "w53"
-    if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101"):
+    if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w107"):
         # New predictive branch starts from the proven W53 attack geometry,
         # not from the stability-oriented W56/W69 family.
         args.mode = "w53"
@@ -525,7 +526,7 @@ def build_action_provider(args):
                     0.90 if args.mode in ("w43", "w44", "w45", "w46", "w47", "w48", "w49", "w50", "w51", "w52", "w53", "w54", "w55", "w56") else 0.0
                 ),
             ))
-            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105", "w106"):
+            if requested_mode in ("w74", "w75", "w76", "w77", "w78", "w79", "w80", "w81", "w82", "w83", "w84", "w85", "w86", "w87", "w88", "w89", "w90", "w91", "w92", "w93", "w95", "w96", "w97", "w98", "w99", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107"):
                 controller.cfg.controller_name = requested_mode
                 controller.cfg.predictive_guidance_enabled = True
                 controller.cfg.predictive_guidance_min_ata_deg = 20.0
@@ -670,7 +671,7 @@ def build_action_provider(args):
                 controller.cfg.lag_pursuit_energy_target_speed_mps = 195.0
                 controller.cfg.lag_pursuit_energy_throttle_base = 0.55
                 controller.cfg.lag_pursuit_energy_throttle_gain = 0.015
-            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105", "w106"):
+            if requested_mode in ("w89", "w98", "w100", "w101", "w102", "w103", "w104", "w105", "w106", "w107"):
                 # Research VPP controller: W88 energy preservation with
                 # continuous lag-to-pure blending and a real gun-WEZ defense.
                 controller.cfg.controller_name = requested_mode
@@ -717,6 +718,23 @@ def build_action_provider(args):
                     controller.cfg.terminal_track_min_threat_ata_deg = 30.0
                 if requested_mode == "w100":
                     controller.cfg.attack_conversion_enabled = True
+                if requested_mode == "w107":
+                    # W100 attack geometry with an explicit mutual-head-on
+                    # escape. Live run0200 showed every nominal gun window at
+                    # AA=169..180deg and threat ATA=11..1deg, producing 63 HP
+                    # loss and zero target damage. Reserve fine tracking for a
+                    # real rear-quarter advantage and cross the nose line
+                    # laterally/vertically during the symmetric pass.
+                    controller.cfg.attack_conversion_enabled = True
+                    controller.cfg.terminal_track_min_threat_ata_deg = 40.0
+                    controller.cfg.headon_deconflict_enabled = True
+                    controller.cfg.headon_deconflict_max_ata_deg = 25.0
+                    controller.cfg.headon_deconflict_max_threat_ata_deg = 25.0
+                    controller.cfg.headon_deconflict_min_aspect_deg = 140.0
+                    controller.cfg.headon_deconflict_range_m = 2400.0
+                    controller.cfg.headon_deconflict_min_closure_mps = 80.0
+                    controller.cfg.headon_deconflict_lateral_offset_m = 1100.0
+                    controller.cfg.headon_deconflict_gamma_deg = 10.0
                 if requested_mode == "w101":
                     controller.cfg.attack_conversion_enabled = True
                     controller.cfg.formula_vpp_enabled = True

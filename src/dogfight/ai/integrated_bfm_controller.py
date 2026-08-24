@@ -117,6 +117,19 @@ class IntegratedBFMConfig:
     lag_pursuit_terminal_taper_end_deg: float = 0.0
     lag_pursuit_mutual_lateral_offset_m: float = 0.0
     lag_pursuit_mutual_threat_ata_deg: float = 0.0
+    # A low own ATA is not an attack when aspect is near 180 degrees and the
+    # bandit also has a low ATA: that is a mutual nose-on pass.  Move the
+    # commanded point off the bandit's nose line and split vertically instead
+    # of presenting a stable head-on gun solution.  Disabled by default so
+    # historical W profiles remain byte-for-byte behaviour compatible.
+    headon_deconflict_enabled: bool = False
+    headon_deconflict_max_ata_deg: float = 20.0
+    headon_deconflict_max_threat_ata_deg: float = 20.0
+    headon_deconflict_min_aspect_deg: float = 140.0
+    headon_deconflict_range_m: float = 2200.0
+    headon_deconflict_min_closure_mps: float = 80.0
+    headon_deconflict_lateral_offset_m: float = 1000.0
+    headon_deconflict_gamma_deg: float = 10.0
     # Preserve lag while radial closure is still high.  ATA-only tapering can
     # collapse the offset exactly when geometry needs a longer flight path to
     # avoid an overshoot.  Optional throttle support preserves airspeed while
@@ -1206,6 +1219,15 @@ class IntegratedBFMController(ActionProvider):
             <= cfg.attack_conversion_max_range_m
         )
 
+        headon_deconflict_active = (
+            cfg.headon_deconflict_enabled
+            and ata <= cfg.headon_deconflict_max_ata_deg
+            and threat_ata <= cfg.headon_deconflict_max_threat_ata_deg
+            and aa >= cfg.headon_deconflict_min_aspect_deg
+            and distance <= cfg.headon_deconflict_range_m
+            and closure >= cfg.headon_deconflict_min_closure_mps
+        )
+
         # Once nearly aligned, high radial closure calls for lag pursuit rather
         # than an even farther lead point.  Move the aim point behind the
         # target along its measured ground track; disengage immediately if ATA
@@ -1322,6 +1344,29 @@ class IntegratedBFMController(ActionProvider):
                 )
                 aim_target[StateIndex.N] += outside_normal[0] * lateral_offset
                 aim_target[StateIndex.E] += outside_normal[1] * lateral_offset
+        if headon_deconflict_active:
+            # This path deliberately sits outside lag-pursuit state gating:
+            # W100 classifies the dangerous mutual pass as defensive, where
+            # lag pursuit is disabled.  Use the target ground track (or its
+            # reported yaw before the velocity estimator settles) to create a
+            # stable one-side crossing point.  _turn_sign supplies hysteresis
+            # and prevents a 60 Hz left/right command chatter.
+            if horizontal_target_speed >= 5.0:
+                headon_track = horizontal_velocity[:2] / horizontal_target_speed
+            else:
+                target_yaw_rad = math.radians(target_yaw)
+                headon_track = np.array([
+                    math.cos(target_yaw_rad), math.sin(target_yaw_rad)
+                ])
+            headon_normal = np.array([-headon_track[1], headon_track[0]])
+            headon_side = (
+                signed_unit(self._target_yaw_rate, self._turn_sign)
+                if abs(self._target_yaw_rate) >= 2.5
+                else self._turn_sign
+            )
+            headon_offset = cfg.headon_deconflict_lateral_offset_m
+            aim_target[StateIndex.N] += headon_side * headon_normal[0] * headon_offset
+            aim_target[StateIndex.E] += headon_side * headon_normal[1] * headon_offset
         # W102 is an overlay on the proven W100 controller, not a replacement
         # pilot.  Only take horizontal guidance during W100's established
         # attack-conversion window, or briefly to deconflict an imminent
@@ -2683,6 +2728,21 @@ class IntegratedBFMController(ActionProvider):
                 defensive_escape_sign * cfg.defensive_escape_gamma_deg
             )
             gamma_limit = max(gamma_limit, cfg.defensive_escape_gamma_deg)
+        if headon_deconflict_active and cfg.headon_deconflict_gamma_deg > 0.0:
+            # Split away from the bandit's altitude.  At co-altitude use an
+            # upward break while ample height remains; unlike the periodic
+            # defensive escape this sign cannot flip during the short pass.
+            altitude_separation = target_altitude - altitude
+            if altitude <= max(cfg.defensive_escape_floor_m, 1200.0):
+                headon_gamma_sign = 1
+            elif altitude_separation > 75.0:
+                headon_gamma_sign = -1
+            else:
+                headon_gamma_sign = 1
+            desired_gamma = (
+                headon_gamma_sign * cfg.headon_deconflict_gamma_deg
+            )
+            gamma_limit = max(gamma_limit, cfg.headon_deconflict_gamma_deg)
         if planner3d_active:
             # The 3-D planner owns both axes as one manoeuvre. Applying the old
             # horizontal-hold or periodic vertical-escape result afterwards
@@ -3037,6 +3097,7 @@ class IntegratedBFMController(ActionProvider):
             "formula_rate_bank_active": formula_rate_bank_active,
             "overshoot_control_active": overshoot_control_active,
             "attack_conversion_active": attack_conversion_active,
+            "headon_deconflict_active": headon_deconflict_active,
             "formula_vpp_active": formula_vpp_active,
             "formula_vpp_blend": self._formula_vpp_blend,
             "formula_vpp_mode": (
