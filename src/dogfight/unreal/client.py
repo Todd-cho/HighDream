@@ -7,6 +7,7 @@ import multiprocessing as mp
 import queue
 import signal
 import socket
+import struct
 import sys
 import threading
 import time
@@ -83,6 +84,10 @@ class _IPCCommandPolicy:
         self.state_queue = state_queue
         self.reset_queue = reset_queue
         self.shared_action = shared_action
+        self.action_source_updates = 0
+        self.action_hold_frames = 0
+        self.max_action_age_frames = 0
+        self._last_source_frame = -2
 
     @staticmethod
     def _replace_latest(q, value) -> None:
@@ -103,12 +108,24 @@ class _IPCCommandPolicy:
     def reset(self, context: RemoteClientContext) -> None:
         self._replace_latest(self.reset_queue, context)
         with self.shared_action.get_lock():
-            self.shared_action[:] = (0.0, 0.0, 0.0, 1.0)
+            self.shared_action[:] = (0.0, 0.0, 0.0, 1.0, -1.0)
+        self._last_source_frame = -2
 
     def compute_command(self, context: RemoteClientContext) -> CMD:
         self._replace_latest(self.state_queue, context)
         with self.shared_action.get_lock():
-            action = tuple(self.shared_action[:])
+            action = tuple(self.shared_action[:4])
+            source_frame = int(self.shared_action[4])
+        if source_frame != self._last_source_frame:
+            self.action_source_updates += 1
+            self._last_source_frame = source_frame
+        else:
+            self.action_hold_frames += 1
+        if source_frame >= 0:
+            self.max_action_age_frames = max(
+                self.max_action_age_frames,
+                max(0, int(context.frame_index) - source_frame),
+            )
         return CMD(
             plane_id=context.plane_id,
             index=context.frame_index,
@@ -159,7 +176,10 @@ class MultiprocessUnrealAIPilotUDPClient:
         self._state_queue = self._ctx.Queue(maxsize=1)
         self._reset_queue = self._ctx.Queue(maxsize=1)
         self._shared_action = self._ctx.Array(
-            "d", (0.0, 0.0, 0.0, 1.0), lock=True
+            # roll, pitch, yaw, throttle, source_frame. The fifth value is
+            # diagnostic only and lets the network process report how stale
+            # the held command became when an RL policy ran below 60 Hz.
+            "d", (0.0, 0.0, 0.0, 1.0, -1.0), lock=True
         )
         self._stop_event = self._ctx.Event()
         self._process = None
@@ -181,7 +201,7 @@ class MultiprocessUnrealAIPilotUDPClient:
         self._drain_latest(self._state_queue)
         self.command_policy.reset(context)
         with self._shared_action.get_lock():
-            self._shared_action[:] = (0.0, 0.0, 0.0, 1.0)
+            self._shared_action[:] = (0.0, 0.0, 0.0, 1.0, -1.0)
 
     def run(self) -> None:
         self._stopped = False
@@ -236,6 +256,7 @@ class MultiprocessUnrealAIPilotUDPClient:
                         float(command.pitch_cmd),
                         float(command.yaw_cmd),
                         float(command.throttle_cmd),
+                        float(context.frame_index),
                     )
                 self._policy_computes += 1
         finally:
@@ -315,6 +336,7 @@ class UnrealAIPilotUDPClient:
         self._command_frame_count = 0
         self._duplicate_frame_drop_count = 0
         self._mismatched_pair_wait_count = 0
+        self._malformed_packet_count = 0
         self._lock = threading.Lock()
         self.context = RemoteClientContext()
         self._own_info_received = False
@@ -390,7 +412,19 @@ class UnrealAIPilotUDPClient:
             f"policy_computes={self._control_compute_count} "
             f"last_cmd_frame={self._last_command_frame} "
             f"duplicate_drops={self._duplicate_frame_drop_count} "
-            f"pair_waits={self._mismatched_pair_wait_count}"
+            # The first PlaneInfo of a normal own/enemy pair necessarily has
+            # a different latest frame from the other aircraft. This counter
+            # therefore measures partial-pair arrivals, not command delay.
+            f"pair_partial_arrivals={self._mismatched_pair_wait_count} "
+            f"malformed_packets={self._malformed_packet_count}"
+            + (
+                " "
+                f"action_source_updates={self.command_policy.action_source_updates} "
+                f"action_hold_frames={self.command_policy.action_hold_frames} "
+                f"max_action_age_frames={self.command_policy.max_action_age_frames}"
+                if isinstance(self.command_policy, _IPCCommandPolicy)
+                else ""
+            )
         )
 
     def enable_packet_monitor(self, refresh_interval_sec: float | None = None) -> None:
@@ -560,7 +594,18 @@ class UnrealAIPilotUDPClient:
                 continue
             except OSError:
                 break
-            self._process_packet(buffer, remote_endpoint)
+            try:
+                self._process_packet(buffer, remote_endpoint)
+            except (struct.error, ValueError) as exc:
+                # A truncated/unknown V1.2 datagram must not kill UDP service
+                # for the rest of the round. Count it and continue; genuine
+                # policy/code exceptions are intentionally not swallowed.
+                self._malformed_packet_count += 1
+                print(
+                    f"[MALFORMED_PACKET] bytes={len(buffer)} "
+                    f"error={type(exc).__name__}: {exc}",
+                    file=sys.stderr,
+                )
 
     def send_simulation_state(self) -> None:
         assert self._socket is not None
@@ -755,6 +800,7 @@ class UnrealAIPilotUDPClient:
         self._command_frame_count = 0
         self._duplicate_frame_drop_count = 0
         self._mismatched_pair_wait_count = 0
+        self._malformed_packet_count = 0
 
     def _log_raw_damage_packet(self, message_type_value: int, buffer: bytes) -> None:
         if self._damage_log_writer is None:
