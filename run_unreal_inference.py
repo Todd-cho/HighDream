@@ -44,6 +44,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w108")
     parser._option_string_actions["--mode"].choices.append("w109")
     parser._option_string_actions["--mode"].choices.append("w110")
+    parser._option_string_actions["--mode"].choices.append("w111")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -263,6 +264,34 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w111":
+        # W109 geometry with event-gated role ownership. Preserve the W100
+        # opening through the first physical merge, give defensive frames to
+        # the W49-derived manager alone, then permit 3-D tracking only after a
+        # clear angular advantage. Pull authority follows speed/geometry.
+        base_args = copy.copy(args)
+        base_args.mode = "w109"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w111"
+        controller.cfg.defensive_exit_threat_ata_deg = 45.0
+        controller.cfg.defensive_exit_range_m = 2400.0
+        controller.cfg.lift_vector_require_first_merge_pass = True
+        controller.cfg.lift_vector_disable_defensive = True
+        controller.cfg.lift_vector_min_threat_ata_deg = 40.0
+        controller.cfg.first_merge_arm_range_m = 1800.0
+        controller.cfg.first_merge_arm_closure_mps = 100.0
+        controller.cfg.first_merge_pass_closure_mps = 0.0
+        controller.cfg.pitch_soft_authority_enabled = True
+        controller.cfg.pitch_soft_cmd_limit = 0.95
+        controller.cfg.physical_pull_scheduler_enabled = True
+        controller.cfg.physical_pull_min_speed_mps = 160.0
+        controller.cfg.physical_pull_full_speed_mps = 205.0
+        controller.cfg.physical_pull_min_scale = 0.25
+        controller.cfg.physical_pull_full_ata_deg = 60.0
+        controller.cfg.physical_pull_min_geometry_scale = 0.35
+        controller.cfg.physical_pull_max_cmd = 0.65
+        return controller
 
     if requested_mode == "w110":
         # Inherit the complete audited W109 profile. W110 changes only the

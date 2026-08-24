@@ -48,7 +48,7 @@ def _state(row: dict[str, str], prefix: str) -> np.ndarray:
     return state
 
 
-def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float]:
+def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float, float, float]:
     provider = _provider(mode)
     active = 0
     max_abs_action = 0.0
@@ -58,6 +58,8 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
     bank_sign_flips = 0
     max_abs_pitch = 0.0
     max_authority = 0.0
+    first_active_time = -1.0
+    first_merge_pass_time = -1.0
     with path.open("r", encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             own = _state(row, "own")
@@ -91,6 +93,8 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
             )
             if result.info.get("lift_vector_active", False):
                 active += 1
+                if first_active_time < 0.0:
+                    first_active_time = float(row["sim_time_s"])
                 max_accel = max(
                     max_accel,
                     float(result.info.get("lift_vector_accel", 0.0)),
@@ -105,9 +109,15 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
                     bank_sign_flips += 1
                 if bank_sign != 0:
                     previous_bank_sign = bank_sign
+            if (
+                first_merge_pass_time < 0.0
+                and result.info.get("first_merge_passed", False)
+            ):
+                first_merge_pass_time = float(row["sim_time_s"])
     return (
         active, max_abs_action, max_accel, max_logged_action_error,
         bank_sign_flips, max_abs_pitch, max_authority,
+        first_active_time, first_merge_pass_time,
     )
 
 
@@ -119,6 +129,7 @@ def main() -> None:
     w108 = replay(args.csv, "w108")
     w109 = replay(args.csv, "w109")
     w110 = replay(args.csv, "w110")
+    w111 = replay(args.csv, "w111")
     assert w100[0] == 0, "W100 isolation failed: overlay unexpectedly active"
     assert w108[0] > 0, "W108 overlay never activated on the reference log"
     assert w108[1] <= 1.00001, "W108 emitted an out-of-bounds command"
@@ -130,6 +141,11 @@ def main() -> None:
     assert w110[0] > 0, "W110 overlay never activated on the reference log"
     assert w110[5] <= 0.92001, "W110 exceeded its pitch authority budget"
     assert w110[6] <= 1.00001, "W110 authority weights exceed unity"
+    assert w111[0] > 0, "W111 never enabled post-merge lift guidance"
+    assert w111[5] <= 0.95001, "W111 exceeded its pitch authority budget"
+    assert w111[2] <= 25.00001, "W111 exceeded acceleration authority"
+    assert w111[8] >= 0.0, "W111 failed to detect the first merge pass"
+    assert w111[7] >= w111[8], "W111 lift guidance activated before merge"
     assert w100[3] <= 1e-5, (
         f"W100 historical behaviour changed: max error={w100[3]:.8f}"
     )
@@ -149,6 +165,12 @@ def main() -> None:
         f"W110 active={w110[0]} max_action={w110[1]:.3f} "
         f"max_accel={w110[2]:.3f} bank_flips={w110[4]} "
         f"max_pitch={w110[5]:.3f} max_authority={w110[6]:.3f}"
+    )
+    print(
+        f"W111 active={w111[0]} max_action={w111[1]:.3f} "
+        f"max_accel={w111[2]:.3f} bank_flips={w111[4]} "
+        f"max_pitch={w111[5]:.3f} max_authority={w111[6]:.3f} "
+        f"merge={w111[8]:.2f}s first_active={w111[7]:.2f}s"
     )
 
 

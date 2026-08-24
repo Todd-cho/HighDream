@@ -47,6 +47,8 @@ class IntegratedBFMConfig:
     defensive_threat_ata_deg: float = 35.0
     defensive_closure_mps: float = 20.0
     defensive_min_hold_s: float = 0.0
+    defensive_exit_threat_ata_deg: float = 0.0
+    defensive_exit_range_m: float = 0.0
     track_ata_deg: float = 35.0
     weapons_ata_deg: float = 10.0
     weapons_range_m: float = 1400.0
@@ -160,6 +162,12 @@ class IntegratedBFMConfig:
     lift_vector_conflict_bank_deg: float = 15.0
     lift_vector_low_energy_speed_mps: float = 175.0
     lift_vector_low_energy_authority_scale: float = 0.50
+    lift_vector_require_first_merge_pass: bool = False
+    lift_vector_disable_defensive: bool = False
+    lift_vector_min_threat_ata_deg: float = 0.0
+    first_merge_arm_range_m: float = 1800.0
+    first_merge_arm_closure_mps: float = 100.0
+    first_merge_pass_closure_mps: float = 0.0
     # Preserve lag while radial closure is still high.  ATA-only tapering can
     # collapse the offset exactly when geometry needs a longer flight path to
     # avoid an overshoot.  Optional throttle support preserves airspeed while
@@ -505,6 +513,13 @@ class IntegratedBFMConfig:
     pitch_cmd_limit: float = 0.40
     pitch_soft_authority_enabled: bool = False
     pitch_soft_cmd_limit: float = 0.92
+    physical_pull_scheduler_enabled: bool = False
+    physical_pull_min_speed_mps: float = 160.0
+    physical_pull_full_speed_mps: float = 205.0
+    physical_pull_min_scale: float = 0.25
+    physical_pull_full_ata_deg: float = 60.0
+    physical_pull_min_geometry_scale: float = 0.35
+    physical_pull_max_cmd: float = 0.65
     fine_vertical_los_blend: float = 0.25
     vertical_prediction_horizon_s: float = 0.0
     use_altitude_rate_vertical_prediction: bool = False
@@ -669,6 +684,8 @@ class IntegratedBFMController(ActionProvider):
         self._lift_vector_sign_until = 0.0
         self._lift_vector_was_active = False
         self._lift_vector_authority = 0.0
+        self._first_merge_armed = False
+        self._first_merge_passed = False
         self._throttle = self.cfg.throttle_merge
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
@@ -852,6 +869,19 @@ class IntegratedBFMController(ActionProvider):
             and now - self._state_since < cfg.defensive_min_hold_s
         ):
             return "defensive"
+        if (
+            self._state == "defensive"
+            and cfg.defensive_exit_threat_ata_deg
+            > cfg.defensive_threat_ata_deg
+            and threat_ata < cfg.defensive_exit_threat_ata_deg
+            and distance <= max(
+                cfg.defensive_exit_range_m, cfg.defensive_range_m
+            )
+        ):
+            # Schmitt-trigger exit: once defensive, do not bounce back to
+            # reacquire at the same 35-degree boundary or on one noisy closure
+            # sample. Exit only after the bandit's nose is clearly displaced.
+            return "defensive"
         immediate_threat = (
             threat_ata <= cfg.defensive_threat_ata_deg
             and distance <= cfg.defensive_range_m
@@ -1029,6 +1059,19 @@ class IntegratedBFMController(ActionProvider):
                 self._target_vertical_stable_s += dt
             else:
                 self._target_vertical_stable_s = 0.0
+
+        if (
+            not self._first_merge_passed
+            and distance <= cfg.first_merge_arm_range_m
+            and closure >= cfg.first_merge_arm_closure_mps
+        ):
+            self._first_merge_armed = True
+        if (
+            self._first_merge_armed
+            and not self._first_merge_passed
+            and closure <= cfg.first_merge_pass_closure_mps
+        ):
+            self._first_merge_passed = True
 
         previous_state = self._state
         state = self._manager(
@@ -2491,6 +2534,15 @@ class IntegratedBFMController(ActionProvider):
         lift_vector_active = (
             cfg.lift_vector_guidance_enabled
             and elapsed >= cfg.lift_vector_activation_delay_s
+            and (
+                not cfg.lift_vector_require_first_merge_pass
+                or self._first_merge_passed
+            )
+            and (
+                not cfg.lift_vector_disable_defensive
+                or state != "defensive"
+            )
+            and threat_ata >= cfg.lift_vector_min_threat_ata_deg
             and cfg.lift_vector_min_range_m <= distance
             <= cfg.lift_vector_max_range_m
             and ata <= cfg.lift_vector_max_ata_deg
@@ -3070,6 +3122,33 @@ class IntegratedBFMController(ActionProvider):
         turn_pull = cfg.turn_pull_at_max_bank * bank_fraction * bank_fraction
         if cfg.integrated_manager_enabled and energy_deficit:
             turn_pull *= cfg.integrated_energy_pull_scale
+        pull_energy_scale = 1.0
+        pull_geometry_scale = 1.0
+        physical_pull_limited = False
+        if cfg.physical_pull_scheduler_enabled:
+            pull_energy_scale = float(np.clip(
+                (own_speed - cfg.physical_pull_min_speed_mps)
+                / max(
+                    cfg.physical_pull_full_speed_mps
+                    - cfg.physical_pull_min_speed_mps,
+                    1.0,
+                ),
+                cfg.physical_pull_min_scale,
+                1.0,
+            ))
+            pull_geometry_scale = float(np.clip(
+                ata / max(cfg.physical_pull_full_ata_deg, 1.0),
+                cfg.physical_pull_min_geometry_scale,
+                1.0,
+            ))
+            scheduled_pull = turn_pull * min(
+                pull_energy_scale, pull_geometry_scale
+            )
+            scheduled_pull = max(
+                scheduled_pull, -abs(cfg.physical_pull_max_cmd)
+            )
+            physical_pull_limited = abs(scheduled_pull - turn_pull) > 1e-6
+            turn_pull = scheduled_pull
         pitch_soft_limited = False
         if cfg.pitch_soft_authority_enabled:
             # Share one actuator budget between flight-path tracking and turn
@@ -3417,6 +3496,7 @@ class IntegratedBFMController(ActionProvider):
             "lift_vector_accel": lift_vector_accel,
             "lift_vector_authority": lift_vector_authority,
             "lift_vector_conflict": lift_vector_conflict,
+            "first_merge_passed": self._first_merge_passed,
             "formula_vpp_active": formula_vpp_active,
             "formula_vpp_blend": self._formula_vpp_blend,
             "formula_vpp_mode": (
@@ -3484,6 +3564,9 @@ class IntegratedBFMController(ActionProvider):
             "measured_pitch_rate": self._pitch_rate,
             "turn_pitch_feedforward": turn_pull,
             "pitch_soft_limited": pitch_soft_limited,
+            "physical_pull_limited": physical_pull_limited,
+            "pull_energy_scale": pull_energy_scale,
+            "pull_geometry_scale": pull_geometry_scale,
             "own_pitch": pitch,
             "own_alt": altitude,
             "vertical_speed": vertical_speed,
