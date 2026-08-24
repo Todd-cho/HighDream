@@ -48,7 +48,7 @@ def _state(row: dict[str, str], prefix: str) -> np.ndarray:
     return state
 
 
-def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float, float, float]:
+def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float, float, float, float, int]:
     provider = _provider(mode)
     active = 0
     max_abs_action = 0.0
@@ -60,6 +60,7 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
     max_authority = 0.0
     first_active_time = -1.0
     first_merge_pass_time = -1.0
+    opening_boost_frames = 0
     with path.open("r", encoding="utf-8", newline="") as stream:
         for row in csv.DictReader(stream):
             own = _state(row, "own")
@@ -114,10 +115,13 @@ def replay(path: Path, mode: str) -> tuple[int, float, float, float, int, float,
                 and result.info.get("first_merge_passed", False)
             ):
                 first_merge_pass_time = float(row["sim_time_s"])
+            if result.info.get("opening_pull_boost_active", False):
+                opening_boost_frames += 1
     return (
         active, max_abs_action, max_accel, max_logged_action_error,
         bank_sign_flips, max_abs_pitch, max_authority,
         first_active_time, first_merge_pass_time,
+        opening_boost_frames,
     )
 
 
@@ -130,6 +134,7 @@ def main() -> None:
     w109 = replay(args.csv, "w109")
     w110 = replay(args.csv, "w110")
     w111 = replay(args.csv, "w111")
+    w112 = replay(args.csv, "w112")
     assert w100[0] == 0, "W100 isolation failed: overlay unexpectedly active"
     assert w108[0] > 0, "W108 overlay never activated on the reference log"
     assert w108[1] <= 1.00001, "W108 emitted an out-of-bounds command"
@@ -146,6 +151,8 @@ def main() -> None:
     assert w111[2] <= 25.00001, "W111 exceeded acceleration authority"
     assert w111[8] >= 0.0, "W111 failed to detect the first merge pass"
     assert w111[7] >= w111[8], "W111 lift guidance activated before merge"
+    assert w112[9] > 0, "W112 opening pull boost never activated"
+    assert w112[5] <= 0.95001, "W112 exceeded pitch authority budget"
     assert w100[3] <= 1e-5, (
         f"W100 historical behaviour changed: max error={w100[3]:.8f}"
     )
@@ -171,6 +178,11 @@ def main() -> None:
         f"max_accel={w111[2]:.3f} bank_flips={w111[4]} "
         f"max_pitch={w111[5]:.3f} max_authority={w111[6]:.3f} "
         f"merge={w111[8]:.2f}s first_active={w111[7]:.2f}s"
+    )
+    print(
+        f"W112 active={w112[0]} max_pitch={w112[5]:.3f} "
+        f"bank_flips={w112[4]} opening_boost={w112[9]}frames "
+        f"merge={w112[8]:.2f}s first_active={w112[7]:.2f}s"
     )
 
 

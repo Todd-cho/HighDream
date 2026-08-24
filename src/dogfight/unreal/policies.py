@@ -285,6 +285,7 @@ class ProviderCommandPolicy:
                 "turn_pitch_feedforward", "desired_gamma_deg", "gamma_error_deg",
                 "pitch_soft_limited", "physical_pull_limited",
                 "pull_energy_scale", "pull_geometry_scale",
+                "opening_pull_boost_active",
                 # Integrated BFM manager/guidance diagnostics (W14+).
                 "threat_ata_deg", "aim_az_deg", "aim_el_deg",
                 "advantage_score", "advantage_ttc_s", "advantage_manager_reason",
@@ -566,6 +567,7 @@ class ProviderCommandPolicy:
                 action_result.info.get("physical_pull_limited", ""),
                 action_result.info.get("pull_energy_scale", ""),
                 action_result.info.get("pull_geometry_scale", ""),
+                action_result.info.get("opening_pull_boost_active", ""),
                 action_result.info.get("threat_ata", ""),
                 action_result.info.get("aim_az", ""),
                 action_result.info.get("aim_el", ""),

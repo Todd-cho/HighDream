@@ -520,6 +520,12 @@ class IntegratedBFMConfig:
     physical_pull_full_ata_deg: float = 60.0
     physical_pull_min_geometry_scale: float = 0.35
     physical_pull_max_cmd: float = 0.65
+    opening_pull_boost_enabled: bool = False
+    opening_pull_boost_duration_s: float = 10.0
+    opening_pull_boost_min_bank_deg: float = 30.0
+    opening_pull_boost_min_ata_deg: float = 80.0
+    opening_pull_boost_min_speed_mps: float = 180.0
+    opening_pull_boost_cmd: float = -0.82
     fine_vertical_los_blend: float = 0.25
     vertical_prediction_horizon_s: float = 0.0
     use_altitude_rate_vertical_prediction: bool = False
@@ -3149,6 +3155,18 @@ class IntegratedBFMController(ActionProvider):
             )
             physical_pull_limited = abs(scheduled_pull - turn_pull) > 1e-6
             turn_pull = scheduled_pull
+        opening_pull_boost_active = (
+            cfg.opening_pull_boost_enabled
+            and elapsed <= cfg.opening_pull_boost_duration_s
+            and abs(bank) >= cfg.opening_pull_boost_min_bank_deg
+            and ata >= cfg.opening_pull_boost_min_ata_deg
+            and own_speed >= cfg.opening_pull_boost_min_speed_mps
+        )
+        if opening_pull_boost_active:
+            # Once the lift plane exists, use it immediately. The historical
+            # quadratic bank feed-forward waited several seconds before
+            # producing useful yaw rate while the initial LOS swept past.
+            turn_pull = min(turn_pull, cfg.opening_pull_boost_cmd)
         pitch_soft_limited = False
         if cfg.pitch_soft_authority_enabled:
             # Share one actuator budget between flight-path tracking and turn
@@ -3567,6 +3585,7 @@ class IntegratedBFMController(ActionProvider):
             "physical_pull_limited": physical_pull_limited,
             "pull_energy_scale": pull_energy_scale,
             "pull_geometry_scale": pull_geometry_scale,
+            "opening_pull_boost_active": opening_pull_boost_active,
             "own_pitch": pitch,
             "own_alt": altitude,
             "vertical_speed": vertical_speed,

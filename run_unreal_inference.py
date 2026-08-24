@@ -45,6 +45,7 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w109")
     parser._option_string_actions["--mode"].choices.append("w110")
     parser._option_string_actions["--mode"].choices.append("w111")
+    parser._option_string_actions["--mode"].choices.append("w112")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
     parser.add_argument(
@@ -264,6 +265,26 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w112":
+        # W111 plus a measured-plant opening pull once bank is established,
+        # and a side/rear terminal gate that accepts the safe AA=82.8-degree
+        # opportunity seen in run0207 while still rejecting head-on aspect.
+        base_args = copy.copy(args)
+        base_args.mode = "w111"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w112"
+        controller.cfg.opening_pull_boost_enabled = True
+        controller.cfg.opening_pull_boost_duration_s = 10.0
+        controller.cfg.opening_pull_boost_min_bank_deg = 30.0
+        controller.cfg.opening_pull_boost_min_ata_deg = 80.0
+        controller.cfg.opening_pull_boost_min_speed_mps = 180.0
+        controller.cfg.opening_pull_boost_cmd = -0.82
+        controller.cfg.terminal_track_max_aspect_deg = 90.0
+        controller.cfg.terminal_track_min_threat_ata_deg = 60.0
+        controller.cfg.attack_conversion_max_aspect_deg = 90.0
+        controller.cfg.attack_conversion_min_threat_ata_deg = 60.0
+        return controller
 
     if requested_mode == "w111":
         # W109 geometry with event-gated role ownership. Preserve the W100
