@@ -53,6 +53,8 @@ class ExplicitPhaseBFMControllerV2(ExplicitPhaseBFMController):
         self._commit_since = 0.0
         self._candidate_sign = 0
         self._candidate_since = 0.0
+        self._initial_candidate_sign = 0
+        self._initial_candidate_since = 0.0
 
     def reset(self, context: ActionContext | None = None) -> None:
         super().reset(context)
@@ -60,6 +62,8 @@ class ExplicitPhaseBFMControllerV2(ExplicitPhaseBFMController):
         self._commit_since = 0.0
         self._candidate_sign = 0
         self._candidate_since = 0.0
+        self._initial_candidate_sign = 0
+        self._initial_candidate_since = 0.0
 
     @staticmethod
     def _sign(value: float, deadband: float = 1e-6) -> int:
@@ -80,9 +84,26 @@ class ExplicitPhaseBFMControllerV2(ExplicitPhaseBFMController):
         target_bank = float(info.get("target_bank", 0.0))
         target_turn_rate = float(info.get("target_yaw_rate", 0.0))
 
-        if self._commit_sign == 0 and bool(info.get("first_merge_passed", False)):
-            self._commit_sign = self._sign(target_bank) or self._sign(target_turn_rate) or 1
-            self._commit_since = now
+        # Do not latch the bank on the exact merge-crossing frame.  Live logs
+        # show that this frame still carries the pre-pass +82deg target and the
+        # geometrically correct post-pass target becomes -82deg one tick later.
+        # Observe a stable post-merge course-bank sign first; EP2's previous
+        # immediate latch blocked this necessary initial reversal.
+        if (
+            self._commit_sign == 0
+            and bool(info.get("first_merge_passed", False))
+            and phase == "reacquire"
+        ):
+            initial_sign = self._sign(target_bank, deadband=30.0)
+            if initial_sign != 0:
+                if self._initial_candidate_sign != initial_sign:
+                    self._initial_candidate_sign = initial_sign
+                    self._initial_candidate_since = now
+                elif now - self._initial_candidate_since >= 0.25:
+                    self._commit_sign = initial_sign
+                    self._commit_since = now
+            else:
+                self._initial_candidate_sign = 0
 
         reversal_candidate = self._sign(target_turn_rate, deadband=6.0)
         target_bank_sign = self._sign(target_bank, deadband=30.0)
@@ -129,6 +150,11 @@ class ExplicitPhaseBFMControllerV2(ExplicitPhaseBFMController):
             "explicit_reversal_candidate": self._candidate_sign,
             "explicit_reversal_candidate_age_s": (
                 max(0.0, now - self._candidate_since) if self._candidate_sign else 0.0
+            ),
+            "explicit_initial_candidate": self._initial_candidate_sign,
+            "explicit_initial_candidate_age_s": (
+                max(0.0, now - self._initial_candidate_since)
+                if self._commit_sign == 0 and self._initial_candidate_sign else 0.0
             ),
         })
         return ActionResult(

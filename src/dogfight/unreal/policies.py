@@ -375,6 +375,7 @@ class ProviderCommandPolicy:
                 "explicit_bank_override_active", "explicit_commit_sign",
                 "explicit_commit_age_s", "explicit_reversal_candidate",
                 "explicit_reversal_candidate_age_s",
+                "explicit_initial_candidate", "explicit_initial_candidate_age_s",
             ])
         self._prev_log_time: float | None = None
         self._prev_log_roll: float | None = None
@@ -721,6 +722,8 @@ class ProviderCommandPolicy:
                 action_result.info.get("explicit_commit_age_s", ""),
                 action_result.info.get("explicit_reversal_candidate", ""),
                 action_result.info.get("explicit_reversal_candidate_age_s", ""),
+                action_result.info.get("explicit_initial_candidate", ""),
+                action_result.info.get("explicit_initial_candidate_age_s", ""),
             ])
             self._log_csv_file.flush()
 
