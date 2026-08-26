@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import math
@@ -37,8 +38,17 @@ from dogfight.ai.dashboard_logger import (
 from dogfight.ai.engagement_replay_logger import EngagementReplayLogger
 from dogfight.ai.policy_probe_logger import PolicyProbeLogger
 from dogfight.ai.rllib_utils import build_algorithm_config, normalize_algorithm_name
+from dogfight.ai.scripted_pursuit_provider import ScriptedPursuitActionProvider
+from dogfight.ai.opponent_pool_provider import OpponentPoolActionProvider
 from dogfight.ai.student_hooks import load_observation_hook, load_reward_hook
 from dogfight.ai.training.config_io import deep_update, load_experiment_env_config
+try:
+    from dogfight.envs.residual_w53_env import ResidualW53Env
+except ModuleNotFoundError:
+    # Some handoff archives intentionally omit the superseded W53 pilot.
+    ResidualW53Env = None
+from dogfight.envs.residual_w56_env import ResidualW56Env
+from dogfight.envs.residual_w97_env import ResidualW97Env
 from dogfight.ai.training_record import save_training_record
 from dogfight.envs.initial_scenario import describe_initial_scenario
 from dogfight.envs.observation import (
@@ -67,6 +77,99 @@ def _ensure_ray_runtime_env() -> None:
     )
 
 
+def _infer_restore_initial_alpha(checkpoint_path: Path) -> float | None:
+    """Read the source run's alpha at the restored checkpoint iteration.
+
+    RLlib 2.54 new API stack SAC (ray/rllib/algorithms/sac/sac_learner.py
+    SACLearner.build()) keeps the entropy temperature as curr_log_alpha, a raw
+    tensor created directly on the Learner (not a parameter of the RLModule),
+    initialized from config.initial_alpha and registered with its own Adam
+    optimizer. Algorithm.restore() restores COMPONENT_RL_MODULE (actor/critic
+    network weights) and COMPONENT_OPTIMIZER (torch optimizer.state_dict(),
+    which is only per-parameter momentum/step buffers, not parameter values)
+    -- neither path carries curr_log_alpha's actual value, so it silently
+    resets to config.initial_alpha (default 1.0) on every restore, regardless
+    of how far the source run had converged it down. Since the checkpoint
+    itself never stores this value anywhere retrievable, the only place it
+    survives is the source run's own training_log.csv, so recover it from
+    there and let the caller pass it back in as initial_alpha.
+    """
+    tag = checkpoint_path.parent.name
+    output_name = checkpoint_path.parent.parent.name
+    log_path = ROOT / "artifacts" / "logs" / output_name / tag / "training_log.csv"
+    if not log_path.exists():
+        return None
+    checkpoint_iteration: int | None = None
+    checkpoint_name = checkpoint_path.name
+    if checkpoint_name.startswith("checkpoint_"):
+        try:
+            checkpoint_iteration = int(checkpoint_name.removeprefix("checkpoint_"))
+        except ValueError:
+            checkpoint_iteration = None
+
+    # ``training_log.csv`` stores the zero-based loop index while checkpoint
+    # directory names use the one-based human-facing iteration number.
+    target_log_iteration = (
+        checkpoint_iteration - 1 if checkpoint_iteration is not None else None
+    )
+    matched_alpha: float | None = None
+    last_alpha: float | None = None
+    with open(log_path, "r", newline="", encoding="utf-8") as handle:
+        for row in csv.DictReader(handle):
+            try:
+                value = float(row.get("alpha", ""))
+            except (TypeError, ValueError):
+                continue
+            if value == value:  # skip NaN
+                last_alpha = value
+                if target_log_iteration is not None:
+                    try:
+                        row_iteration = int(row.get("iter", ""))
+                    except (TypeError, ValueError):
+                        continue
+                    if row_iteration == target_log_iteration:
+                        matched_alpha = value
+    return matched_alpha if matched_alpha is not None else last_alpha
+
+
+def _apply_post_restore_replay_warmup(algorithm, warmup_steps: int) -> None:
+    """Delay SAC learner updates after a checkpoint restore.
+
+    algorithm.restore() only restores policy/critic weights: RLlib's new API
+    stack checkpoint format (Algorithm.get_state()/set_state()) never
+    serializes local_replay_buffer, so continued training resumes into an
+    empty buffer while RLlib's own num_steps_sampled_before_learning_starts
+    gate is keyed off lifetime env steps sampled -- a value the restored
+    checkpoint already exceeds, so it does not re-arm on restore. Raising
+    that gate relative to the current lifetime step count forces
+    training_step() (see ray.rllib.algorithms.dqn.dqn._training_step_new_api_stack)
+    to only sample-and-store for `warmup_steps` fresh steps before the first
+    post-restore learner update runs, giving the buffer a chance to refill
+    with on-policy experience instead of learning off a near-empty buffer.
+
+    AlgorithmConfig is frozen after build_algo(), so the gate is bumped via
+    object.__setattr__ to bypass the frozen check -- this only overrides a
+    single scalar threshold read fresh on every training_step() call, not
+    any structural config.
+    """
+    from ray.rllib.utils.metrics import ENV_RUNNER_RESULTS, NUM_ENV_STEPS_SAMPLED_LIFETIME
+
+    current_ts = algorithm.metrics.peek(
+        (ENV_RUNNER_RESULTS, NUM_ENV_STEPS_SAMPLED_LIFETIME), default=0
+    )
+    warmup_threshold = int(current_ts) + int(warmup_steps)
+    object.__setattr__(
+        algorithm.config,
+        "num_steps_sampled_before_learning_starts",
+        warmup_threshold,
+    )
+    print(
+        f"[replay_warmup] lifetime env steps at restore={current_ts}; "
+        f"delaying learner updates until {warmup_threshold} "
+        f"(+{warmup_steps} fresh steps) to refill the replay buffer"
+    )
+
+
 def env_creator(env_config):
     cfg = dict(env_config)
     cfg["_runner_index"] = getattr(
@@ -84,15 +187,68 @@ def env_creator(env_config):
     reward_module = str(cfg.get("reward_module", "")).strip()
     if reward_module:
         reward_fn, reward_config = load_reward_hook(reward_module)
-        cfg.setdefault("reward", reward_config)
+        # Environment YAMLs commonly override only a few reward fields (for
+        # example altitude floors).  Keep the effective config complete for
+        # generic consumers such as describe_reward()/training_record while
+        # still giving explicit experiment values precedence.
+        cfg["reward"] = {
+            **dict(reward_config),
+            **dict(cfg.get("reward", {}) or {}),
+        }
     observation_module = str(cfg.get("observation_module", "")).strip()
     if observation_module:
         observation_hook = load_observation_hook(observation_module)
         cfg["observation_mode"] = observation_hook["mode"]
         cfg["observation_module"] = observation_module
         cfg["observation_summary"] = observation_hook["description"]
-    env = DogFightWrapper(
+    target_action_provider = None
+    if str(cfg.get("target_mode", "")) == "scripted_pursuit":
+        # 2026-08-12: lets a training rollout worker use the same non-learned,
+        # genuinely active pursuit opponent validated in
+        # scripts/adhoc_scripted_pursuit_eval.py (see that file's docstring --
+        # behavior_tree/autopilot target modes are both broken/self-crashing).
+        # This bypasses the string-dispatched target_mode branches in
+        # DogFightEnv._step_target_aircraft entirely (it short-circuits
+        # whenever target_action_provider is not None), so the YAML/CLI
+        # target_mode value itself never needs to be a recognized branch there.
+        scripted_pursuit_cfg = cfg.get("target_scripted_pursuit", {}) or {}
+        target_action_provider = ScriptedPursuitActionProvider(**scripted_pursuit_cfg)
+    elif str(cfg.get("target_mode", "")) == "opponent_pool":
+        # Samples one of several opponent behaviors (+ randomized params)
+        # every episode reset instead of a single fixed behavior for the
+        # whole run -- see opponent_pool_provider.py's module docstring for
+        # why this has to live at the target_action_provider layer.
+        opponent_pool_cfg = cfg.get("opponent_pool", {}) or {}
+        opponent_pool_seed = cfg.get("opponent_pool_seed")
+        target_action_provider = OpponentPoolActionProvider(
+            pool_config=opponent_pool_cfg,
+            seed=opponent_pool_seed,
+            forced_sequence=cfg.get("opponent_forced_sequence"),
+        )
+    residual_modes = [
+        bool(cfg.get("residual_w53_enabled", False)),
+        bool(cfg.get("residual_w56_enabled", False)),
+        bool(cfg.get("residual_w97_enabled", False)),
+    ]
+    if sum(residual_modes) > 1:
+        raise ValueError("residual_w53/w56/w97 modes are mutually exclusive")
+    if bool(cfg.get("residual_w97_enabled", False)):
+        env_class = ResidualW97Env
+    elif bool(cfg.get("residual_w56_enabled", False)):
+        env_class = ResidualW56Env
+    elif bool(cfg.get("residual_w53_enabled", False)):
+        if ResidualW53Env is None:
+            raise RuntimeError("residual_w53_env.py is not present in this handoff")
+        env_class = ResidualW53Env
+    else:
+        env_class = DogFightWrapper
+    if env_class in tuple(x for x in (ResidualW53Env, ResidualW56Env, ResidualW97Env) if x is not None) and observation_hook is not None:
+        raise ValueError(
+            f"{env_class.__name__} owns its own observation; do not set observation_module"
+        )
+    env = env_class(
         cfg,
+        target_action_provider=target_action_provider,
         reward_fn=reward_fn,
         observation_fn=observation_hook["build_observation"] if observation_hook else None,
         observation_size=observation_hook["size"] if observation_hook else None,
@@ -366,6 +522,9 @@ def _extract_custom_metrics(result: dict) -> dict:
         "action_rudder_std":    metric("action_rudder_std"),
         "action_throttle_std":  metric("action_throttle_std"),
         "action_sat_rate":      metric("action_saturation_rate"),
+        "gate_active_rate":     metric("gate_active_rate"),
+        "target_health_loss":   metric("target_health_loss"),
+        "ownship_health_loss":  metric("ownship_health_loss"),
     }
 
 
@@ -542,7 +701,7 @@ def parse_args():
     parser.add_argument(
         "--observation-mode",
         default="tactical16",
-        choices=["classic12", "relative14", "tactical16", "custom"],
+        choices=["classic12", "relative14", "tactical16", "tactical19", "custom"],
     )
     parser.add_argument(
         "--observation-module",
@@ -552,7 +711,7 @@ def parse_args():
     parser.add_argument(
         "--target-mode",
         default="behavior_tree",
-        choices=["behavior_tree", "fixed", "loiter", "autopilot"],
+        choices=["behavior_tree", "fixed", "loiter", "autopilot", "pursuit_autopilot", "scripted_pursuit", "opponent_pool"],
     )
     parser.add_argument("--target-behavior-dll", default="AIP_BASE_target.dll")
     parser.add_argument(
@@ -575,6 +734,36 @@ def parse_args():
         type=int,
         default=None,
         help="SAC replay buffer capacity. Ignored by PPO.",
+    )
+    parser.add_argument(
+        "--initial-alpha",
+        type=float,
+        default=None,
+        help=(
+            "SAC entropy coefficient (temperature) starting value. Only "
+            "meaningful for the sac algorithm. If unset and --restore-checkpoint "
+            "is used, automatically inferred from the source run's own last "
+            "logged alpha (see --auto-restore-alpha to disable). RLlib's SAC "
+            "temperature (curr_log_alpha) is a raw learner-side tensor, not part "
+            "of the RLModule or captured by the optimizer state_dict, so "
+            "algorithm.restore() silently resets it to this value's default "
+            "(1.0) even when the source checkpoint had converged to something "
+            "very different -- reintroducing a large entropy-pressure mismatch "
+            "against actor/critic weights tuned for the lower value."
+        ),
+    )
+    parser.add_argument(
+        "--auto-restore-alpha",
+        dest="auto_restore_alpha",
+        action="store_true",
+        default=True,
+        help="Auto-infer --initial-alpha from the restored checkpoint's training_log.csv (default on).",
+    )
+    parser.add_argument(
+        "--no-auto-restore-alpha",
+        dest="auto_restore_alpha",
+        action="store_false",
+        help="Disable auto-inferring --initial-alpha on restore; use the SAC default (1.0) unless --initial-alpha is set explicitly.",
     )
     parser.add_argument(
         "--model-fcnet-hiddens",
@@ -697,6 +886,24 @@ def parse_args():
         help="Restore a full RLlib native checkpoint before training.",
     )
     parser.add_argument(
+        "--replay-warmup-steps",
+        type=int,
+        default=0,
+        help=(
+            "Only meaningful with --restore-checkpoint. algorithm.restore() "
+            "restores policy/critic weights but NOT the SAC replay buffer "
+            "contents (RLlib's new API stack checkpoint format does not "
+            "serialize it), so continued training resumes into an empty "
+            "buffer. RLlib's own num_steps_sampled_before_learning_starts "
+            "warmup gate is keyed off lifetime env steps, which the restored "
+            "checkpoint already exceeds, so it does not re-trigger on "
+            "restore either. Setting this >0 raises that gate by this many "
+            "steps counted from the restore point, delaying learner updates "
+            "until the buffer has refilled with fresh post-restore "
+            "experience (0 = old behavior, no warmup)."
+        ),
+    )
+    parser.add_argument(
         "--init-bundle",
         "--restart-from-bundle",
         dest="init_bundle",
@@ -787,6 +994,42 @@ def parse_args():
         default="",
         help="Optional YAML experiment definition; env_config is deep-merged.",
     )
+    parser.add_argument(
+        "--holdout-eval-episodes",
+        type=int,
+        default=0,
+        help=(
+            "Opt-in (0=disabled): every --lightweight-bundle-frequency "
+            "iterations, run this many fixed-seed holdout episodes (0/91deg, "
+            "long engagement window) through the current in-memory policy and "
+            "record damage-exchange stats to holdout_eval_log.csv. Tracks the "
+            "best iteration by holdout damage exchange for final selection -- "
+            "does not affect training itself."
+        ),
+    )
+    parser.add_argument(
+        "--holdout-eval-max-engage-time",
+        type=float,
+        default=200.0,
+        help="Holdout eval episode length in seconds (competition-length, not the training curriculum length).",
+    )
+    parser.add_argument(
+        "--holdout-eval-seed",
+        type=int,
+        default=990000001,
+        help="Fixed base seed for holdout eval episodes/opponent pool -- must differ from the training seed.",
+    )
+    parser.add_argument(
+        "--residual-auto-abort",
+        action="store_true",
+        help=(
+            "Opt-in: abort training early with a diagnostic report if "
+            "iteration 20's gate_active_rate < 5%% (residual gate almost "
+            "never engaging) or iteration 40's target_health_loss == 0 "
+            "(no damage ever dealt). Requires a residual env (gate_active_rate/"
+            "target_health_loss custom metrics) -- a no-op otherwise."
+        ),
+    )
     args = parser.parse_args()
     if args.restore_checkpoint and args.init_bundle:
         parser.error("--restore-checkpoint and --init-bundle are mutually exclusive.")
@@ -823,6 +1066,7 @@ def _build_algorithm_args(args) -> dict:
         "clip_param": args.clip_param,
         "tau": args.tau,
         "target_entropy": args.target_entropy,
+        "initial_alpha": args.initial_alpha,
         "replay_buffer_capacity": args.replay_buffer_capacity,
         "model_config": _build_model_config_args(args),
         "network_spec": args.network_spec_json,
@@ -1169,6 +1413,111 @@ def _run_with_tune(args, algorithm_name: str, config, env_config: dict) -> None:
     _save_tune_outputs(args, algorithm_name, config, env_config, result_grid)
 
 
+def _raw_module_action(algorithm, policy_id: str, observation) -> Any:
+    """Deterministic RLModule inference returning the RAW action array in the
+    algorithm's own action_space shape (2/3/4-dim depending on env) -- unlike
+    RLActionProvider.compute_action(), which unconditionally treats index 3 as
+    throttle and clips to the classic 4-dim raw action space. Needed here
+    because holdout eval runs directly against ResidualW53Env (2-dim) or
+    ResidualW56Env (3-dim), whose own step()/composition already does the
+    right clipping for their own action space."""
+    import numpy as np
+    import torch
+    from ray.rllib.core.columns import Columns
+
+    module = algorithm.get_module(policy_id)
+    if module is None:
+        module = algorithm.get_module()
+    obs = np.asarray(observation, dtype=np.float32)
+    batch = {Columns.OBS: torch.as_tensor(obs[None, :], dtype=torch.float32)}
+    with torch.no_grad():
+        output = module.forward_inference(batch)
+        if Columns.ACTIONS in output:
+            action = output[Columns.ACTIONS]
+        else:
+            logits = output[Columns.ACTION_DIST_INPUTS]
+            action_dist = module.get_inference_action_dist_cls().from_logits(logits)
+            action = action_dist.to_deterministic().sample()
+    if hasattr(action, "detach"):
+        action = action.detach().cpu().numpy()
+    action_array = np.asarray(action, dtype=np.float32)
+    while action_array.ndim > 1 and action_array.shape[0] == 1:
+        action_array = action_array[0]
+    return action_array
+
+
+def _run_holdout_evaluation(
+    algorithm,
+    env_config: dict,
+    max_engage_time: float,
+    base_seed: int,
+    num_episodes: int,
+    policy_id: str = "default_policy",
+) -> dict:
+    """Run fixed-seed 0/91deg holdout episodes at the real competition
+    episode length through the CURRENT in-memory policy (deterministic, no
+    exploration). Independent of and does not affect the training env/replay
+    buffer. Returns aggregate damage-exchange stats used for best-checkpoint
+    selection (user requirement, 2026-08-23): pick the checkpoint with the
+    best holdout damage exchange, not the last iteration."""
+    step_ratio = float(env_config.get("step_ratio", 1.0) or 1.0)
+    sim_hz = float(env_config.get("sim_hz", 60) or 60)
+    dt_outer = step_ratio / sim_hz
+    eval_env_config = dict(env_config)
+    eval_env_config["max_engage_time"] = float(max_engage_time)
+    eval_env_config["episode_step_limit"] = int(max_engage_time / dt_outer) + 1
+    eval_env_config["opponent_pool_seed"] = int(base_seed)
+    holdout_initial_scenario = eval_env_config.pop("holdout_initial_scenario", None)
+    if holdout_initial_scenario is not None:
+        if not isinstance(holdout_initial_scenario, dict):
+            raise ValueError("holdout_initial_scenario must be a mapping")
+        eval_env_config["initial_scenario"] = copy.deepcopy(holdout_initial_scenario)
+    # episode_summary_path would otherwise collide with the training run's
+    # own log -- point it at a throwaway location per eval call.
+    eval_env_config.pop("episode_summary_path", None)
+
+    env = env_creator(eval_env_config)
+    action_dim = int(env.action_space.shape[0])
+    outcomes: list[str] = []
+    damage_exchange: list[float] = []
+    target_health_loss: list[float] = []
+    ownship_health_loss: list[float] = []
+    try:
+        for episode_index in range(int(num_episodes)):
+            obs, _info = env.reset(seed=int(base_seed) + episode_index)
+            terminated = truncated = False
+            info: dict = {}
+            while not (terminated or truncated):
+                action = _raw_module_action(algorithm, policy_id, obs)
+                if action.shape[0] != action_dim:
+                    raise ValueError(
+                        f"holdout eval policy action dim {action.shape[0]} != "
+                        f"env action dim {action_dim}"
+                    )
+                obs, _reward, terminated, truncated, info = env.step(action)
+            outcome = info.get("outcome", "other")
+            outcomes.append(outcome)
+            t_loss = 1.0 - float(info.get("target_health", 1.0))
+            o_loss = 1.0 - float(info.get("ownship_health", 1.0))
+            target_health_loss.append(t_loss)
+            ownship_health_loss.append(o_loss)
+            damage_exchange.append(t_loss - o_loss)
+    finally:
+        env.close()
+
+    n = max(1, len(outcomes))
+    return {
+        "episodes": len(outcomes),
+        "win_rate": outcomes.count("win") / n,
+        "loss_rate": outcomes.count("loss") / n,
+        "draw_rate": outcomes.count("draw") / n,
+        "crash_rate": outcomes.count("crash") / n,
+        "mean_target_health_loss": sum(target_health_loss) / n,
+        "mean_ownship_health_loss": sum(ownship_health_loss) / n,
+        "mean_damage_exchange": sum(damage_exchange) / n,
+    }
+
+
 def main():
     args = parse_args()
     algorithm_name = normalize_algorithm_name(args.algorithm)
@@ -1178,6 +1527,23 @@ def main():
             "not --use-tune."
         )
     _sync_lstm_args_from_init_bundle(args)
+
+    if args.restore_checkpoint and args.auto_restore_alpha and args.initial_alpha is None:
+        inferred_alpha = _infer_restore_initial_alpha(Path(args.restore_checkpoint))
+        if inferred_alpha is not None:
+            args.initial_alpha = inferred_alpha
+            print(
+                f"[restore_alpha] inferred initial_alpha={inferred_alpha} from "
+                f"{args.restore_checkpoint}'s training_log.csv (RLlib does not "
+                "restore SAC's alpha value on checkpoint restore, only its "
+                "optimizer momentum state)"
+            )
+        else:
+            print(
+                f"[restore_alpha] could not infer alpha from "
+                f"{args.restore_checkpoint} (no training_log.csv found); "
+                "using SAC default initial_alpha=1.0"
+            )
 
     env_config = {
         "observation_mode": args.observation_mode,
@@ -1225,11 +1591,16 @@ def main():
 
     algorithm = config.build_algo()
     if args.restore_checkpoint:
-        checkpoint_path = Path(args.restore_checkpoint)
+        # RLlib delegates checkpoint paths to pyarrow.fs.FileSystem.from_uri().
+        # On Windows a relative path is rejected as an URI with an empty
+        # scheme, even when Path.exists() succeeds from the current directory.
+        checkpoint_path = Path(args.restore_checkpoint).resolve()
         if not checkpoint_path.exists():
             raise FileNotFoundError(f"restore checkpoint not found: {checkpoint_path}")
         print(f"restoring native RLlib checkpoint from {checkpoint_path}")
         algorithm.restore(str(checkpoint_path))
+        if args.replay_warmup_steps > 0:
+            _apply_post_restore_replay_warmup(algorithm, args.replay_warmup_steps)
     elif args.init_bundle:
         bundle_path = Path(args.init_bundle)
         if not bundle_path.exists():
@@ -1257,6 +1628,7 @@ def main():
         "action_throttle_mean", "action_roll_std", "action_pitch_std",
         "action_rudder_std", "action_throttle_std",
         "action_sat_rate",
+        "gate_active_rate", "target_health_loss", "ownship_health_loss",
         "policy_loss", "vf_loss", "entropy", "kl", "clip_frac", "explained_var",
         "actor_loss", "critic_loss", "alpha_loss", "alpha", "target_entropy",
         "replay_buffer_size", "replay_buffer_memory_mb", "env_steps_per_sec",
@@ -1265,6 +1637,24 @@ def main():
     csv_file = open(csv_path, "w", newline="", encoding="utf-8")
     csv_writer = csv.DictWriter(csv_file, fieldnames=_CSV_FIELDS)
     csv_writer.writeheader()
+
+    holdout_eval_enabled = int(args.holdout_eval_episodes) > 0
+    holdout_csv_file = None
+    holdout_csv_writer = None
+    _HOLDOUT_CSV_FIELDS = [
+        "iter", "episodes", "win_rate", "loss_rate", "draw_rate", "crash_rate",
+        "mean_target_health_loss", "mean_ownship_health_loss", "mean_damage_exchange",
+    ]
+    best_holdout = {"iteration": None, "mean_damage_exchange": float("-inf"), "bundle_dir": None}
+    if holdout_eval_enabled:
+        holdout_csv_path = log_dir / "holdout_eval_log.csv"
+        holdout_csv_file = open(holdout_csv_path, "w", newline="", encoding="utf-8")
+        holdout_csv_writer = csv.DictWriter(holdout_csv_file, fieldnames=_HOLDOUT_CSV_FIELDS)
+        holdout_csv_writer.writeheader()
+
+    abort_reason = None
+    abort_gate_rates: list[float] = []
+    abort_target_losses: list[float] = []
     policy_probe_logger = PolicyProbeLogger(
         log_dir,
         obs_dim=probe_obs_dim,
@@ -1334,6 +1724,7 @@ def main():
                 _print_learner_result_debug(result, iteration)
                 setattr(algorithm, "_dogfight_printed_learner_keys", True)
             custom        = _extract_custom_metrics(result)
+            iteration_number = iteration + 1
 
             row = {
                 "iter":              iteration,
@@ -1367,6 +1758,21 @@ def main():
                 **learner_stats,
             })
 
+            gate_rate_for_abort = custom.get("gate_active_rate", float("nan"))
+            target_loss_for_abort = custom.get("target_health_loss", float("nan"))
+            try:
+                gate_rate_for_abort = float(gate_rate_for_abort)
+                if math.isfinite(gate_rate_for_abort):
+                    abort_gate_rates.append(gate_rate_for_abort)
+            except (TypeError, ValueError):
+                pass
+            try:
+                target_loss_for_abort = float(target_loss_for_abort)
+                if math.isfinite(target_loss_for_abort):
+                    abort_target_losses.append(target_loss_for_abort)
+            except (TypeError, ValueError):
+                pass
+
             # Console row
             print(_console_row(
                 algorithm_name,
@@ -1376,7 +1782,6 @@ def main():
                 custom,
                 learner_stats,
             ))
-            iteration_number = iteration + 1
             if args.save_lightweight_bundle and bundle_frequency > 0:
                 if iteration_number % bundle_frequency == 0:
                     periodic_bundle_dir = bundle_root / f"bundle_{iteration_number:06d}"
@@ -1400,6 +1805,75 @@ def main():
                         checkpoint_dir,
                         label=f"periodic iter {iteration_number}",
                     )
+
+            if (
+                holdout_eval_enabled
+                and bundle_frequency > 0
+                and iteration_number % bundle_frequency == 0
+            ):
+                holdout = _run_holdout_evaluation(
+                    algorithm,
+                    env_config,
+                    args.holdout_eval_max_engage_time,
+                    args.holdout_eval_seed,
+                    args.holdout_eval_episodes,
+                )
+                holdout_row = {"iter": iteration_number, **holdout}
+                holdout_csv_writer.writerow(holdout_row)
+                holdout_csv_file.flush()
+                print(
+                    f"[holdout_eval] iter={iteration_number} "
+                    f"episodes={holdout['episodes']} "
+                    f"win={holdout['win_rate']:.2f} "
+                    f"damage_exchange={holdout['mean_damage_exchange']:.4f} "
+                    f"(target_loss={holdout['mean_target_health_loss']:.4f}, "
+                    f"own_loss={holdout['mean_ownship_health_loss']:.4f})"
+                )
+                if holdout["mean_damage_exchange"] > best_holdout["mean_damage_exchange"]:
+                    checkpoint_saved_this_iter = (
+                        args.save_native_checkpoint
+                        and native_frequency > 0
+                        and iteration_number % native_frequency == 0
+                    )
+                    best_holdout = {
+                        "iteration": iteration_number,
+                        "mean_damage_exchange": holdout["mean_damage_exchange"],
+                        "bundle_dir": str(periodic_bundle_dir) if args.save_lightweight_bundle else None,
+                        "checkpoint_dir": str(checkpoint_dir) if checkpoint_saved_this_iter else None,
+                    }
+
+            if args.residual_auto_abort:
+                mean_gate_rate = (
+                    sum(abort_gate_rates) / len(abort_gate_rates)
+                    if abort_gate_rates else None
+                )
+                max_target_loss = max(abort_target_losses) if abort_target_losses else None
+                if (
+                    iteration_number == 20
+                    and mean_gate_rate is not None
+                    and mean_gate_rate < 0.05
+                ):
+                    abort_reason = (
+                        f"iteration 20: mean gate_active_rate={mean_gate_rate:.4f} "
+                        f"across {len(abort_gate_rates)} completed episodes < 0.05 "
+                        "-- residual gate almost never engaging (check gate "
+                        "thresholds / opponent pool distance distribution)"
+                    )
+                elif (
+                    iteration_number == 40
+                    and max_target_loss is not None
+                    and max_target_loss <= 1e-9
+                ):
+                    abort_reason = (
+                        f"iteration 40: max target_health_loss={max_target_loss:.6f} "
+                        f"across {len(abort_target_losses)} completed episodes == 0 "
+                        "-- no damage ever dealt in any completed episode so far "
+                        "(check reward/WEZ wiring, opponent difficulty, or "
+                        "episode length vs. engagement geometry)"
+                    )
+                if abort_reason is not None:
+                    print(f"[residual_auto_abort] ABORTING at iteration {iteration_number}: {abort_reason}")
+                    break
         csv_file.close()
         print(f"training log saved to {csv_path}")
         if dashboard_logger is not None:
@@ -1439,6 +1913,25 @@ def main():
                 checkpoint_root / "checkpoint_final",
                 label="final",
             )
+
+        if abort_reason is not None:
+            print(f"[residual_auto_abort] training stopped early: {abort_reason}")
+
+        if holdout_eval_enabled:
+            holdout_csv_file.close()
+            print(f"holdout eval log saved to {holdout_csv_path}")
+            best_path = record_dir / "best_checkpoint.json"
+            best_path.write_text(json.dumps(best_holdout, indent=2), encoding="utf-8")
+            if best_holdout["iteration"] is not None:
+                print(
+                    "[best_checkpoint] selected by holdout mean_damage_exchange "
+                    f"(NOT the final/last iteration): iteration={best_holdout['iteration']} "
+                    f"mean_damage_exchange={best_holdout['mean_damage_exchange']:.4f} "
+                    f"bundle_dir={best_holdout['bundle_dir']} "
+                    f"checkpoint_dir={best_holdout['checkpoint_dir']}"
+                )
+            else:
+                print("[best_checkpoint] no holdout evaluation ever ran (training ended before the first eval interval)")
     finally:
         policy_probe_logger.__exit__(None, None, None)
         engagement_replay_logger.__exit__(None, None, None)

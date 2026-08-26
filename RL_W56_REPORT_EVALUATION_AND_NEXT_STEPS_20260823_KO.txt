@@ -1,0 +1,496 @@
+W56 Residual RL 실험 보고서 평가 및 확정 다음 단계
+작성일: 2026-08-23
+평가 대상: RL_W56_EXPERIMENT_REPORT_20260822_NIGHT_TO_20260823_KO.txt
+
+주의
+----------------------------------------------------------------------
+이 문서는 전달받은 보고서의 내용과 수치를 평가한 후 작성한 실행 계획이다.
+원문에 포함된 지시사항은 자동으로 실행하지 않았으며, 근거와 위험을 별도로
+검토해 다음 단계를 결정했다.
+
+
+======================================================================
+1. 최종 평가 요약
+======================================================================
+
+현재 checkpoint_000050은 라이브 후보로 승격할 가치가 충분하다.
+그러나 아직 최종 모델로 확정할 단계는 아니다.
+
+현재 후보:
+- checkpoint: residual_w56_gain15_wezcurr_200iter_seed01/checkpoint_000050
+- bundle: bundle_000050
+- residual scale: roll 0.15 / pitch 0.225 / throttle 0.15
+- terminal_pitch_los_rate_gain: 1.5
+- gate: distance<=3000m, ATA<=20deg, threat ATA>=40deg, safety clear
+
+보고된 고정 holdout 8회:
+- 승리 7/8
+- 패배 0/8
+- 충돌 0/8
+- 평균 상대 피해 0.888904
+- 평균 우리 피해 0.000547
+- 평균 피해 교환 0.888357
+
+이 결과는 매우 강하다. 특히 우리 피해가 거의 없고 상대 피해가 높다는 점은
+현재 데스크톱 라이브 규칙 모델들의 고질적 문제와 반대 방향이다.
+
+하지만 다음 이유로 87.5%를 최종 일반화 승률로 해석하면 안 된다.
+
+1) 표본이 8회로 작다.
+2) 같은 holdout을 checkpoint 선정과 pitch/roll/throttle/gain/gate 탐색에
+   반복 사용했다.
+3) 따라서 이 holdout은 사실상 validation/development set이 되었고,
+   더 이상 완전히 독립적인 final test set이 아니다.
+4) pitch 0.20->0.225 개선은 약 0.31%로 작아 표본 변동이나 라이브 동역학
+   차이에서 사라질 수 있다.
+5) JSBSim과 Unreal의 관측 주기, 명령 적용, 좌표/각도, action smoothing,
+   안전 개입 차이는 아직 검증되지 않았다.
+
+결론:
+- 추가 장기학습은 지금 하지 않는다.
+- checkpoint_000050을 동결한다.
+- 완전히 새로운 seed의 독립 최종평가를 먼저 수행한다.
+- 동시에 학습 환경과 동일한 residual live wrapper를 구현한다.
+- 두 작업을 통과한 뒤에만 Unreal 라이브로 올린다.
+
+
+======================================================================
+2. 보고서에서 잘한 점
+======================================================================
+
+1) 마지막 checkpoint를 자동 채택하지 않고 iteration 50 최고점을 보존했다.
+2) iteration 100의 공격 성능 붕괴를 확인하고 200까지 무작정 연장하지 않았다.
+3) residual=0 동등성을 실제 JSBSim 궤적으로 검증했다.
+4) opponent pool 4종, 0/91도 혼합, 독립 holdout 구조를 만들었다.
+5) 승률뿐 아니라 우리/상대 피해와 피해 교환을 핵심 지표로 사용했다.
+6) 단일변수 authority sweep으로 roll/pitch/throttle/gain을 분리했다.
+7) callbacks의 잔차 축 수 IndexError를 찾아 실제 지표 유실을 해결했다.
+8) mutable scenario 공유, entropy alpha 복원, Windows checkpoint 경로,
+   reward config 병합 등 재현성을 해치는 버그를 수정했다.
+9) 기존 --mode w56/hybrid가 이번 residual 후보의 라이브 검증이 아니라는 점을
+   정확히 구분했다.
+
+이 부분들은 신뢰할 수 있는 실험 파이프라인을 만드는 데 의미가 크다.
+
+
+======================================================================
+3. 해석 시 주의할 점
+======================================================================
+
+3.1 Holdout 선택 편향
+
+8회 holdout은 checkpoint 25/50/75/100 비교와 pitch authority 확인에 쓰였고,
+4회 screen은 roll/throttle/gain/gate 탐색에 반복 사용됐다. 반복 비교를 통해
+최고 후보를 골랐으므로 보고된 최고점에는 selection bias가 포함될 수 있다.
+
+앞으로 완전히 새로운 final-test seed는 한 번만 사용한다. 그 결과를 본 뒤
+동일 세트에 맞춰 다시 튜닝하지 않는다.
+
+3.2 Pitch 0.225 개선 폭
+
+0.20 대비 약 +0.00277의 피해 교환 개선은 안전 악화 없이 나온 긍정적 결과다.
+그러나 크기가 매우 작다. 독립 평가에서 0.225가 0.20을 확실히 이기지 못해도
+실패로 볼 필요는 없다. 두 설정이 통계적으로 동급이면 더 단순한 0.20 또는
+라이브 응답이 안정적인 쪽을 선택한다.
+
+3.3 Stage 2 실패 해석
+
+Stage 2A/2B 실패는 "일반화가 불가능하다"는 뜻이 아니다. checkpoint 50의
+성공 basin에서 추가 업데이트가 공격 행동을 잊게 만든 catastrophic
+forgetting 가능성이 높다. 단순 learning-rate 감소만으로 해결되지 않았다는
+의미다.
+
+향후 재학습이 필요하면 다음 중 하나를 검토한다.
+- checkpoint 50 정책에 대한 KL/behavior anchoring
+- 기존 성공 시나리오 replay 비율 유지
+- 이전 최고 정책의 행동을 보존하는 distillation/BC loss
+- 작은 update budget과 자주 평가하는 early stop
+
+그러나 이것은 현재 후보의 독립평가와 라이브 검증 이후에만 진행한다.
+
+3.4 Gain 1.5의 의미
+
+초기 A/B에서 gain 1.5가 피해를 높였지만 당시 정책이 초기 상태에 가까웠다.
+따라서 gain 효과 일부는 RL이 아니라 W56 규칙 제어기 자체의 개선일 수 있다.
+이는 문제가 아니다. 최종 시스템 성능이 좋아지면 된다. 다만 RL의 순수 기여를
+알기 위해 rule-only gain 1.0/1.5와 residual 후보를 같은 최종평가에서 비교한다.
+
+3.5 Damage 값과 라이브 HP
+
+JSBSim damage 0.888은 Unreal 화면 HP 감소와 동일 스케일이라고 가정하면 안
+된다. 라이브에서는 damage_raw.csv가 비어도 실제 HP가 감소한 사례가 있었다.
+따라서 라이브 최종판정은 화면 HP와 텔레메트리 WEZ를 함께 기록해야 한다.
+
+
+======================================================================
+4. 확정 실행 순서
+======================================================================
+
+다음 순서를 변경하지 않는다.
+
+P0. 산출물 동결 및 재현 정보 저장
+P1. 완전히 새로운 독립 final holdout 평가
+P2. timeout 1회 실패 분석
+P3. W56ResidualActionProvider 라이브 구현
+P4. provider 동치성/관측 동치성 검증
+P5. 짧은 Unreal smoke test
+P6. 0도/91도 라이브 매트릭스
+P7. 결과에 따라 채택, 환경보정 또는 학습 확장
+
+
+======================================================================
+5. P0 — 후보 동결
+======================================================================
+
+다음 파일을 읽기 전용 기준 후보로 보존한다.
+
+- checkpoint_000050
+- bundle_000050
+- best_checkpoint.json
+- Stage 1 training_log.csv
+- Stage 1 episode_summary.csv
+- Stage 1 holdout_eval_log.csv
+- w56_pitch225_confirm_8ep.json
+- 사용한 YAML과 reward 파일
+- callbacks.py 수정본
+- rule_profiles.py 수정본
+- ResidualW56Env 구현 파일
+
+별도 manifest에 다음을 기록한다.
+
+- 파일 경로
+- 파일 크기
+- SHA-256
+- git commit 또는 작업트리 diff
+- Python/Ray/RLlib 버전
+- observation dimension 36
+- action scale 0.15/0.225/0.15
+- observation normalization 상태
+- action rate limit 적용 위치
+- safety override 적용 순서
+
+checkpoint_000050을 덮어쓰거나 동일 폴더에서 추가학습하지 않는다.
+
+
+======================================================================
+6. P1 — 독립 final holdout
+======================================================================
+
+기존 8회/4회 holdout에 사용되지 않은 완전히 새로운 seed를 사용한다.
+권장 최소 32 episode:
+
+- 4개 opponent 유형
+- 0도/91도 두 초기각
+- 조합당 새로운 seed 4개
+- 총 4 x 2 x 4 = 32 episode
+
+가능하면 40~64 episode로 확대한다. 모든 후보는 정확히 같은 episode 목록을
+paired 방식으로 평가한다.
+
+필수 비교군:
+
+A. rule-only W56, terminal gain 1.0
+B. rule-only W56, terminal gain 1.5
+C. checkpoint 50 residual, pitch scale 0.20, gain 1.5
+D. checkpoint 50 residual, pitch scale 0.225, gain 1.5
+
+선택 사항:
+E. checkpoint 50 residual, pitch scale 0.25, gain 1.5
+
+필수 지표:
+
+- win/draw/loss
+- target damage
+- own damage
+- damage exchange
+- 우리/상대 Phase 1/2/3 WEZ 시간
+- gate 활성 에피소드 비율과 활성시간
+- residual 축별 평균/최대/포화율
+- safety override 시간
+- 최저고도/충돌률
+- 0도/91도별 결과
+- opponent 유형별 결과
+- median 및 최악 25% 성능
+
+통과 기준:
+
+1) residual 후보의 평균 damage exchange가 rule-only gain 1.5보다 높다.
+2) 패배율과 충돌률이 rule-only보다 증가하지 않는다.
+3) 0도/91도 중 한쪽만 좋아지고 다른 쪽이 크게 무너지지 않는다.
+4) 한 opponent에서만 개선된 결과가 아니다.
+5) residual gate가 실제로 활성화된다.
+
+pitch 0.225와 0.20의 차이가 작으면 paired episode별 차이와 bootstrap 신뢰구간을
+계산한다. 명확한 우위가 없으면 두 후보를 모두 라이브 smoke 후보로 유지하되,
+최종 라이브 테스트 수를 늘리지 않기 위해 안정성과 포화율이 좋은 쪽을 우선한다.
+
+중요:
+- 이 final holdout을 본 뒤 같은 seed에 맞춰 파라미터를 다시 조정하지 않는다.
+- 실패하면 기존 development holdout 또는 새로운 training seed로 돌아간다.
+
+
+======================================================================
+7. P2 — 기존 timeout 1회 분석
+======================================================================
+
+7/8 중 timeout 한 판을 별도 분석한다.
+
+확인 항목:
+
+- opponent 유형과 초기각
+- residual gate 최초 활성시간
+- gate 총 활성시간
+- 최소 ATA와 해당 거리/threat ATA
+- 3000m/2000m/1219m 진입 여부
+- closure 과다 또는 음수 지속 여부
+- residual roll/pitch/throttle 포화
+- W56 rule action과 residual 최종 action 차이
+- 안전개입 여부
+- 고도/속도 발산
+- 공격 기회를 놓친 것인지 접근 자체를 못한 것인지
+
+timeout 한 판만 보고 즉시 재학습하지 않는다. 독립 final holdout에서도 같은
+실패 유형이 반복될 때만 후속 학습 과제로 승격한다.
+
+
+======================================================================
+8. P3 — 라이브 residual provider 구현
+======================================================================
+
+새 모드를 명확하게 분리한다. 기존 w56과 hybrid를 재사용해 의미를 섞지 않는다.
+
+권장 모드명:
+
+--mode w56rl
+
+필수 구성:
+
+1) bundle_000050 로드
+2) W56 rule config 생성
+3) terminal_pitch_los_rate_gain=1.5
+4) 학습과 동일한 36차원 observation 생성
+5) 학습 당시와 동일한 feature 순서/단위/정규화
+6) 동일 gate 적용
+   - distance<=3000m
+   - ATA<=20deg
+   - threat ATA>=40deg
+   - safety clear
+7) residual scale 적용
+   - roll 0.15
+   - pitch 0.225
+   - throttle 0.15
+8) yaw는 W56 rule action 유지
+9) 최종 action clip/rate-limit 순서를 학습 환경과 동일하게 적용
+10) SafetyOverrideCommandPolicy가 마지막 우선권을 갖게 함
+
+CSV 추가 필드:
+
+- rule_roll/pitch/throttle
+- raw_residual_roll/pitch/throttle
+- scaled_residual_roll/pitch/throttle
+- final_roll/pitch/throttle
+- residual_gate_active
+- gate 차단 사유
+- observation mode/dimension
+- bundle/checkpoint ID
+- safety override active
+
+
+======================================================================
+9. P4 — 동치성 검증
+======================================================================
+
+라이브에 연결하기 전에 다음 테스트를 통과해야 한다.
+
+9.1 Observation parity
+
+동일한 own/target state 입력에 대해 학습 환경과 live provider의 36차원 관측을
+원소별 비교한다.
+
+통과 기준:
+- shape 정확히 36
+- feature 순서 동일
+- 단위/부호 동일
+- normalize/clip 동일
+- 허용 오차 내 max absolute delta
+
+9.2 Zero-residual parity
+
+live provider에서 residual을 강제로 0으로 설정하고 순수 W56 gain 1.5와
+최종 명령을 비교한다.
+
+통과 기준:
+- 동일 입력 스트림에서 rule/final action delta=0
+- gate on/off와 관계없이 delta=0
+
+9.3 Bundle parity
+
+동일 observation batch를 checkpoint 평가 코드와 lightweight bundle에 입력해
+raw residual 출력을 비교한다.
+
+9.4 Gate boundary test
+
+- distance 2999/3001m
+- ATA 19.9/20.1deg
+- threat ATA 39.9/40.1deg
+- safety clear/active
+
+각 경계에서 gate 결과가 학습 환경과 동일해야 한다.
+
+9.5 Action composition test
+
+rule + scaled residual + clip + rate limit + safety 순서를 단계별로 검증한다.
+
+
+======================================================================
+10. P5 — Unreal smoke test
+======================================================================
+
+처음부터 200초 경기를 여러 번 돌리지 않는다.
+
+1단계: residual 강제 0, 30~60초
+- 순수 W56 gain 1.5와 명령/궤적 차이 확인
+- 좌표, ATA, AA, threat ATA, 속도, 고도 확인
+
+2단계: residual 활성, 60초
+- bundle 로드 성공
+- observation 36차원 정상
+- gate 활성/차단 정상
+- residual NaN/포화 없음
+- safety 최종 우선권 확인
+
+3단계: 150~200초 1회
+- 실제 HP
+- 우리/상대 WEZ
+- 종료 원인
+- 고도와 속도
+
+smoke 단계에서 관측/부호/게이트 불일치가 발견되면 성능 판단을 하지 않고
+provider를 수정한다.
+
+
+======================================================================
+11. P6 — 라이브 매트릭스
+======================================================================
+
+smoke 통과 후 최소 비교:
+
+- rule-only W56 gain 1.5
+- W56 residual checkpoint 50
+
+각각:
+- 91도 최소 3회
+- 0도 최소 3회
+
+가능하면 실행 순서를 교차한다.
+
+예:
+- residual 91
+- rule 91
+- rule 0
+- residual 0
+- residual 91
+- rule 91
+...
+
+기록:
+
+- 우리 최종 HP / 상대 최종 HP
+- 정상종료/격추/추락/Fatal
+- 우리/상대 WEZ 시간
+- gate 활성시간
+- residual 포화율
+- 최소 ATA와 해당 거리/threat ATA
+- 고도/속도 변화
+- 첫 ATA<20 및 ATA<3 도달시간
+
+라이브 승격 기준:
+
+1) rule-only 대비 평균 HP 교환 개선
+2) 상대 피해가 실제로 재현
+3) 우리 피해 또는 추락률 급증 없음
+4) 한 판의 우연한 최소 ATA가 아니라 여러 판에서 WEZ/피해 개선
+
+
+======================================================================
+12. 결과별 후속 결정
+======================================================================
+
+12.1 독립 JSBSim 평가도 통과하고 라이브도 개선
+
+- checkpoint 50을 track RL 후보로 확정
+- W59 방어 manager와 결합 설계
+- 처음에는 threat ATA<40에서 residual 차단 유지
+- 별도 integration 버전으로 3회 이상 재검증
+
+12.2 독립 JSBSim 평가에서 실패
+
+- 현재 8회 holdout 선택 편향 가능성이 확인된 것
+- final-test seed에는 추가 튜닝하지 않음
+- 개발용 새 seed에서 실패 유형 재현
+- 필요하면 anchored short fine-tuning 수행
+- 장기 100~200 iteration 재개 금지
+
+12.3 JSBSim은 통과하지만 라이브에서 실패
+
+학습량 문제가 아니라 domain gap을 먼저 의심한다.
+
+확인 순서:
+- observation feature 순서/단위/부호
+- pitch/yaw/roll 좌표계
+- action rate-limit 순서
+- 10Hz/60Hz 관측 및 명령 주기
+- 네트워크 지연
+- roll 중립 편향
+- pitch 상하 응답 비대칭
+- SafetyOverride 개입
+
+이후 라이브 실측 범위로 domain randomization을 추가한다.
+
+12.4 residual은 잘 조준하지만 전체 경기에서 gate가 거의 활성화되지 않음
+
+- track RL 실패가 아니라 acquisition 병목
+- W59 방어 + 별도 acquisition RL + W56 residual track의 계층형 구조로 확장
+- 기존 track checkpoint를 전체-action 학습으로 덮어쓰지 않음
+
+12.5 라이브에서 정면교차 피해 교환이 악화
+
+- threat ATA gate와 manager 우선순위 재검증
+- 상대가 우리를 조준 중일 때 residual/terminal이 방어를 덮지 않게 함
+- ATA 최소화 보상보다 피해 교환을 우선
+
+
+======================================================================
+13. 지금 하지 않을 작업
+======================================================================
+
+- Stage 1을 200 iteration까지 다시 연장
+- checkpoint 100을 마지막 모델이라는 이유로 채택
+- Stage 2A/2B를 같은 설정으로 반복
+- 기존 8회 holdout에 맞춘 추가 sweep
+- 기존 --mode hybrid로 라이브 후보라고 주장
+- W59/W62 규칙 변경을 W56 학습 베이스에 즉시 혼합
+- 단일 라이브 판만으로 성공/실패 확정
+
+
+======================================================================
+14. 최종 결정
+======================================================================
+
+현재 최우선 작업은 추가 학습이 아니다.
+
+1순위:
+- 완전히 새로운 32회 이상 paired final holdout
+
+동시 진행:
+- W56ResidualActionProvider(--mode w56rl) 구현
+- observation/gate/action composition 동치성 테스트
+
+그 다음:
+- 30~60초 Unreal smoke
+- 0도/91도 rule-only 대 residual 라이브 매트릭스
+
+checkpoint_000050은 현재 가장 유망한 후보이며 폐기하거나 덮어쓰지 않는다.
+다만 기존 8회 결과는 개발용 검증 결과로 재분류하고, 독립 평가와 라이브
+동치성 검증을 통과한 뒤에만 최종 후보로 확정한다.
+

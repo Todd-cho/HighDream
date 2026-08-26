@@ -1,0 +1,79 @@
+name: residual_w97_gate90_120iter
+script: train_rllib
+
+output:
+  name: highdream
+  tag: residual_w97_gate90_120iter_seed02
+
+env:
+  target_mode: opponent_pool
+  reward_module: student.my_reward_residual_w97_v2
+  max_engage_time: 40.0
+  episode_step_limit: 400
+
+env_config:
+  residual_w97_enabled: true
+  step_ratio: 6
+  safety_override_enabled: true
+  reward:
+    altitude_soft_floor_m: 2400.0
+    altitude_hard_floor_m: 1200.0
+    damage_scale: 35.0
+    ata_scale: 0.05
+    range_scale: 0.25
+  opponent_pool_seed: 26082402
+  opponent_pool:
+    common: {cruise_altitude_m: 3048.0, cruise_speed_kcas: 260.0, max_bank_deg: 75.0, max_pitch_deg: 30.0}
+    behaviors:
+      - {type: straight_level, weight: 0.5}
+      - {type: steady_turn, weight: 2.0}
+      - {type: scripted_pursuit, weight: 2.0}
+      - {type: vertical_weave, weight: 1.5}
+  residual_w97:
+    max_roll_scale: 0.20
+    max_pitch_scale: 0.20
+    max_throttle_scale: 0.10
+    gate_ata_deg: 90.0
+    gate_range_m: 3500.0
+    gate_min_threat_ata_deg: 10.0
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization: {enabled: true, radius: 100.0, r_roll: 15.0, r_pitch: 10.0, r_heading: 8.0, speed_mps: 18.0}
+    target_randomization: {enabled: true, radius: 120.0, r_roll: 20.0, r_pitch: 14.0, r_heading: 12.0, speed_mps: 22.0}
+    scenarios:
+      - {name: acq30_r1600, weight: 2.0, ownship: [1000, 0, -3048, 0, 0, 0, 245], target: [2386, 800, -3128, -12, 0, 160, 260]}
+      - {name: acq45_r2200, weight: 3.0, ownship: [1000, 0, -3048, 0, 0, 0, 255], target: [2556, 1556, -2948, 12, 0, 190, 245]}
+      - {name: acq70_r2600, weight: 3.0, ownship: [1000, 0, -3048, 0, 0, 0, 255], target: [1889, 2443, -3048, 0, 0, 220, 250]}
+      - {name: left_acq45_r2200, weight: 2.0, ownship: [1000, 0, -3048, 0, 0, 0, 250], target: [2556, -1556, -3148, -12, 0, 170, 255]}
+      - {name: vertical_acq60, weight: 2.0, ownship: [1000, 0, -3048, 5, 0, 0, 250], target: [2200, 2078, -2698, 20, 0, 200, 250]}
+
+algo:
+  name: sac
+  framework: torch
+  lr: 2.0e-4
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 20000
+  mlp: {enabled: true, fcnet_hiddens: [256, 256], fcnet_activation: relu, head_fcnet_hiddens: [], head_fcnet_activation: relu}
+
+runtime:
+  iterations: 120
+  seed: 26082402
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  init_bundle: artifacts/models/highdream/residual_w97_acq45_30iter_seed01/bundle_000030
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 30
+  save_native_checkpoint: true
+  native_checkpoint_frequency: 30
+
+residual_auto_abort: false
+dashboard: {enabled: false}
+policy_probe: {enabled: false}
+engagement_log: {enabled: false}
+notes: "Emergency 2h candidate: widen residual exposure to the observed live ATA failure band."

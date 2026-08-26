@@ -1,0 +1,259 @@
+{
+  "finding": "Environment action_space clipping is the authoritative boundary before residual scaling.",
+  "samples": [
+    {
+      "step": 0,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        -0.11891238391399384,
+        0.33793917298316956,
+        -0.10672078281641006,
+        -0.1558719426393509,
+        -0.23162898421287537,
+        -0.17068873345851898
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        -0.11891238391399384,
+        0.33793917298316956,
+        -0.10672078281641006
+      ],
+      "action_space_clipped": [
+        -0.11891238391399384,
+        0.33793917298316956,
+        -0.10672078281641006
+      ],
+      "scaled_residual": [
+        -0.017836857587099075,
+        0.06758783757686615,
+        -0.01600811816751957
+      ]
+    },
+    {
+      "step": 1,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        -0.09158599376678467,
+        0.026608379557728767,
+        0.09074060618877411,
+        -0.12323880195617676,
+        -0.4037429690361023,
+        -0.2882898449897766
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        -0.09158599376678467,
+        0.026608379557728767,
+        0.09074060618877411
+      ],
+      "action_space_clipped": [
+        -0.09158599376678467,
+        0.026608379557728767,
+        0.09074060618877411
+      ],
+      "scaled_residual": [
+        -0.013737899251282215,
+        0.0053216759115457535,
+        0.013611091300845146
+      ]
+    },
+    {
+      "step": 2,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        -0.015365217812359333,
+        0.06618192791938782,
+        0.19678741693496704,
+        -0.11019596457481384,
+        -0.40633344650268555,
+        -0.29257023334503174
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        -0.015365217812359333,
+        0.06618192791938782,
+        0.19678741693496704
+      ],
+      "action_space_clipped": [
+        -0.015365217812359333,
+        0.06618192791938782,
+        0.19678741693496704
+      ],
+      "scaled_residual": [
+        -0.002304782858118415,
+        0.013236385770142078,
+        0.029518114402890205
+      ]
+    },
+    {
+      "step": 10,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        0.07237072288990021,
+        0.3405182659626007,
+        0.1646679788827896,
+        -0.23102526366710663,
+        -1.0160342454910278,
+        -0.498427152633667
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        0.07237072288990021,
+        0.3405182659626007,
+        0.1646679788827896
+      ],
+      "action_space_clipped": [
+        0.07237072288990021,
+        0.3405182659626007,
+        0.1646679788827896
+      ],
+      "scaled_residual": [
+        0.010855608619749546,
+        0.06810365617275238,
+        0.02470019832253456
+      ]
+    },
+    {
+      "step": 50,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        -0.08925098180770874,
+        -0.639656662940979,
+        -1.4122211933135986,
+        0.03626984730362892,
+        -0.4143677353858948,
+        -0.2762795090675354
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        -0.08925098180770874,
+        -0.639656662940979,
+        -1.4122211933135986
+      ],
+      "action_space_clipped": [
+        -0.08925098180770874,
+        -0.639656662940979,
+        -1.0
+      ],
+      "scaled_residual": [
+        -0.013387647457420826,
+        -0.12793134152889252,
+        -0.15000000596046448
+      ]
+    },
+    {
+      "step": 100,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        -0.02681257203221321,
+        0.23041504621505737,
+        -0.03311748802661896,
+        0.02055700495839119,
+        -0.08557699620723724,
+        0.016331693157553673
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        -0.02681257203221321,
+        0.23041504621505737,
+        -0.03311748802661896
+      ],
+      "action_space_clipped": [
+        -0.02681257203221321,
+        0.23041504621505737,
+        -0.03311748802661896
+      ],
+      "scaled_residual": [
+        -0.004021885804831982,
+        0.046083010733127594,
+        -0.0049676233902573586
+      ]
+    },
+    {
+      "step": 200,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        0.01631239429116249,
+        -0.03582809865474701,
+        0.08630268275737762,
+        -0.054070573300123215,
+        -0.12101688981056213,
+        -0.1812843233346939
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        0.01631239429116249,
+        -0.03582809865474701,
+        0.08630268275737762
+      ],
+      "action_space_clipped": [
+        0.01631239429116249,
+        -0.03582809865474701,
+        0.08630268275737762
+      ],
+      "scaled_residual": [
+        0.0024468591436743736,
+        -0.007165619637817144,
+        0.012945403344929218
+      ]
+    },
+    {
+      "step": 299,
+      "output_keys": [
+        "action_dist_inputs"
+      ],
+      "action_source": "deterministic_distribution_sample",
+      "network_action_dist_inputs": [
+        0.09296581149101257,
+        0.02194618061184883,
+        0.08455488830804825,
+        -0.033268049359321594,
+        -0.10333475470542908,
+        -0.1464381366968155
+      ],
+      "direct_actions": null,
+      "deterministic_action": [
+        0.09296581149101257,
+        0.02194618061184883,
+        0.08455488830804825
+      ],
+      "action_space_clipped": [
+        0.09296581149101257,
+        0.02194618061184883,
+        0.08455488830804825
+      ],
+      "scaled_residual": [
+        0.01394487265497446,
+        0.004389236215502024,
+        0.012683234177529812
+      ]
+    }
+  ],
+  "sampled_deterministic_abs_max_by_axis": [
+    0.11891238391399384,
+    0.639656662940979,
+    1.4122211933135986
+  ],
+  "any_deterministic_outside_action_space": true
+}

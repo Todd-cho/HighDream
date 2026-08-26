@@ -1,4 +1,49 @@
-# DogFight RL 학습 환경 매뉴얼
+# HighDream 1v1 Air Combat AI
+
+HighDream은 Unreal BattleServer와 UDP로 연동되는 1대1 공중전 AI 프로젝트입니다.
+JSBSim 기반 학습 환경에서 SAC 정책과 다양한 BFM 규칙 제어기를 실험했으며,
+최종 제출 기준 모델은 라이브 검증 재현성이 가장 높았던 **pure SAC V8**입니다.
+
+## 최종 구성
+
+- 모델: `altitude_attack_followup_v1_stage6obs19_v8_angle090_opp055_50iter_C10`
+- 관측: `tactical19`
+- 제어: pure RL (규칙 wrapper 미사용)
+- 통신: 멀티프로세스 UDP transport
+- 안전장치: `SafetyOverrideCommandPolicy`
+- 기본 팀명: `HighDream`
+
+최종 실행 파일은 `submission/highdream_launcher.py`로 빌드합니다. 실행 파일과
+`HighDream_config.json`을 같은 폴더에 두고, 설정 파일의 `server_ip`와
+`server_port`를 경기 서버 값으로 수정합니다.
+
+```cmd
+HighDream.exe
+```
+
+소스에서 동일한 모델을 실행하는 예시는 다음과 같습니다.
+
+```cmd
+python run_unreal_inference.py --mode rl --bundle-dir artifacts\models\highdream\altitude_attack_followup_v1_stage6obs19_v8_angle090_opp055_50iter_C10 --observation-mode tactical19 --team-name HighDream --server-ip 127.0.0.1 --server-port 9999 --multiprocess-transport --action-repeat 1 --safety-override --log-csv artifacts\logs\pure_v8_live.csv
+```
+
+## 프로젝트 구성
+
+- `run_unreal_inference.py`: Unreal 라이브 추론 진입점
+- `src/dogfight/`: 환경, 정책, 통신 및 제어 코드
+- `artifacts/models/highdream/`: 학습된 lightweight 정책 번들
+- `experiments/`: SAC 및 커리큘럼 실험 설정
+- `scripts/`: 평가·로그 분석 도구
+- `submission/`: HighDream 실행 파일 빌드 설정과 런처
+- `archive/`: W 계열 규칙/하이브리드 실험 기록
+
+W 계열 규칙 제어기와 residual/handoff 방식은 연구 이력으로 보존되어 있지만,
+최종 제출 경로에는 자동 적용되지 않습니다. 최종 모델 선택과 실행 설정은
+`submission/highdream_launcher.py`가 단일 기준점입니다.
+
+---
+
+## 개발 환경 매뉴얼
 
 JSBSim/DLL 기반 F-16 1v1 공중전 강화학습 환경입니다.  
 현재 `Release/` 배포본은 학생 수정 파일을 얇은 템플릿으로 유지하고,

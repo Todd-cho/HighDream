@@ -49,9 +49,20 @@ ATTACK_STAGES = [
         "iterations": 180,
         "reward": {
             "attack_range_max_m": 2500.0,
-            "attack_range_bonus": 0.30,
+            # 2026-08-04: bumped from 0.30/0.35 (weak placeholders that failed the
+            # distance gate at 11977m) to the values already validated in the
+            # ata_scale bisection (stage5_ata015_150iter etc.: crash 5%, dist 8913m
+            # on this exact mixed scenario pool).
+            "attack_range_bonus": 0.9,
             "far_range_penalty_start_m": 4000.0,
-            "far_range_penalty": 0.35,
+            "far_range_penalty": 1.05,
+            "ata_scale": 0.15,
+            # 2026-08-05: C10 base has no range_scale (altitude-only stage), so
+            # this silently fell back to my_reward.py's default 0.8 instead of
+            # the validated 2.4 (stage5_ata015_150iter) -- 3x weaker pull into
+            # ideal range, which is why 5 seeded reruns all failed the distance
+            # gate at ~10860m instead of the validated ~8913m.
+            "range_scale": 2.4,
         },
         "crash_max": 0.20,
         "altitude_min": 1800.0,
@@ -67,9 +78,11 @@ ATTACK_STAGES = [
             "attack_range_bonus": 0.45,
             "far_range_penalty_start_m": 3500.0,
             "far_range_penalty": 0.45,
-            "ata_scale": 0.16,
+            "ata_scale": 0.15,
             "aa_scale": 0.04,
             "wez_bonus": 1.0,
+            # Same range_scale gap fix as stage 5 -- see note above.
+            "range_scale": 2.4,
         },
         "crash_max": 0.25,
         "altitude_min": 1500.0,

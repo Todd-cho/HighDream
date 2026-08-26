@@ -57,6 +57,23 @@ ray_results/
 !/artifacts/altitude_attack_followup_v1/pipeline_state.json
 !/artifacts/altitude_attack_followup_v1/attack_stage_results.csv
 
+# Team-shared lightweight bundles (actor weights only, no checkpoint/replay
+# state) for cross-machine comparison. Only put finalized candidates here.
+!/artifacts/models_shared/
+/artifacts/models_shared/**
+!/artifacts/models_shared/README.md
+!/artifacts/models_shared/*/
+!/artifacts/models_shared/*/metadata.json
+!/artifacts/models_shared/*/policy_weights.pkl.gz
+
+# Team-shared native checkpoints for continued training. Only checkpoint_final
+# (not intermediate checkpoint_NNNNNN snapshots) — keeps repo size small.
+!/artifacts/checkpoints_shared/
+/artifacts/checkpoints_shared/**
+!/artifacts/checkpoints_shared/*/
+!/artifacts/checkpoints_shared/*/checkpoint_final/
+!/artifacts/checkpoints_shared/*/checkpoint_final/**
+
 # Never commit models, native checkpoints, replay/log output or backups
 /artifacts/models/
 /artifacts/checkpoints/
@@ -86,6 +103,9 @@ ray_results/
 /Rule_forTraining.xml
 /run_local_dogfight.py
 /run_unreal_inference.py
+# 2026-08-21: added --tactical-wrapper/--action-rate-limit/--damage-log-csv
+# CLI flags directly in this file tonight -- un-ignore to track our changes.
+!/run_unreal_inference.py
 
 # Official experiment examples already included in Release_260727
 /experiments/student_mixed_initial_sac_lstm.yaml
@@ -105,12 +125,23 @@ ray_results/
 /src/**
 !/src/dogfight/
 /src/dogfight/**
+!/src/dogfight/config.py
 !/src/dogfight/ai/
 /src/dogfight/ai/**
 !/src/dogfight/ai/rllib_utils.py
+!/src/dogfight/ai/scripted_pursuit_provider.py
+!/src/dogfight/ai/tactical_wrapper.py
+!/src/dogfight/ai/pursuit_controller.py
+!/src/dogfight/ai/pulse_test_provider.py
+!/src/dogfight/ai/w1_controller.py
 !/src/dogfight/envs/
 /src/dogfight/envs/**
 !/src/dogfight/envs/single_agent_env.py
+!/src/dogfight/envs/reward.py
+!/src/dogfight/unreal/
+/src/dogfight/unreal/**
+!/src/dogfight/unreal/policies.py
+!/src/dogfight/unreal/client.py
 
 # Official dashboard/viewer is supplied unchanged by Release_260727.
 /tools/
@@ -139,7 +170,12 @@ yarn-error.log*
 *.pt
 *.pth
 *.onnx
+!/artifacts/models_shared/*/policy_weights.pkl.gz
+!/artifacts/checkpoints_shared/**/*.pkl
+!/artifacts/checkpoints_shared/**/*.json
 
 # Local-only notes that may contain machine-specific absolute paths
 내 실험.txt
 reward.txt
+# Local AI assistant settings
+.claude/

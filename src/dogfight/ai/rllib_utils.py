@@ -76,6 +76,8 @@ def build_algorithm_config(algorithm_name: str, env_name: str, env_config: dict,
             "tau": args["tau"],
             "target_entropy": args["target_entropy"],
         }
+        if args.get("initial_alpha") is not None:
+            training_args["initial_alpha"] = float(args["initial_alpha"])
         if replay_buffer_config:
             training_args["replay_buffer_config"] = replay_buffer_config
         config = config.training(**training_args)

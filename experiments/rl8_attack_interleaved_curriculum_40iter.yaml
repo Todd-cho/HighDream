@@ -1,0 +1,105 @@
+name: rl8_attack_interleaved_curriculum_40iter
+script: train_rllib
+
+output:
+  name: highdream
+  tag: rl8_attack_interleaved_curriculum_40iter_seed07
+
+env:
+  observation_mode: tactical19
+  target_mode: opponent_pool
+  reward_module: student.my_reward_delta_v1_wez_proximity
+  max_engage_time: 20.0
+  episode_step_limit: 200
+
+env_config:
+  step_ratio: 6
+  safety_override_enabled: true
+  opponent_pool_seed: 26082417
+  opponent_pool:
+    common: {cruise_altitude_m: 4500.0, cruise_speed_kcas: 250.0, max_bank_deg: 72.0, max_pitch_deg: 30.0}
+    behaviors:
+      - {type: straight_level, weight: 4.0, ranges: {cruise_speed_kcas: [220.0, 270.0]}}
+      - {type: steady_turn, weight: 3.0, ranges: {turn_bank_deg: [18.0, 60.0]}}
+      - {type: scripted_pursuit, weight: 1.0, ranges: {cruise_speed_kcas: [235.0, 280.0]}}
+      - {type: vertical_weave, weight: 1.0, ranges: {weave_amplitude_m: [120.0, 380.0], weave_period_s: [8.0, 16.0]}}
+  reward:
+    altitude_soft_floor_m: 1200.0
+    altitude_hard_floor_m: 700.0
+    low_altitude_penalty: 0.20
+    very_low_altitude_penalty: 1.2
+    crash_penalty: -300.0
+    win_reward: 150.0
+    loss_reward: -100.0
+    draw_reward: -15.0
+    damage_scale: 100.0
+    range_scale: 2.5
+    ata_scale: 0.20
+    aa_scale: 0.02
+    ata_delta_scale: 0.25
+    range_delta_scale: 0.035
+    pursuit_heading_scale: 0.25
+    ata_precision_scale: 3.5
+    ata_precision_width_deg: 6.0
+    wez_bonus: 4.0
+    wez_proximity_scale: 1.0
+    wez_proximity_use_aa: true
+    wez_hold_scale: 0.45
+    wez_hold_quality_threshold: 0.35
+    wez_hold_growth_per_step: 0.10
+    wez_hold_growth_cap_steps: 20
+    wez_hold_break_penalty_scale: 0.05
+    wez_hold_break_min_streak: 5
+    roll_limit_deg: 82.0
+    roll_limit_penalty: 0.015
+    pitch_down_limit_deg: -14.0
+    pitch_down_penalty: 0.12
+    overshoot_penalty: 5.0
+    overshoot_quadratic_scale: 1.5
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization: {enabled: true, radius: 35.0, r_roll: 3.0, r_pitch: 2.0, r_heading: 3.0, speed_mps: 6.0}
+    target_randomization: {enabled: true, radius: 45.0, r_roll: 5.0, r_pitch: 4.0, r_heading: 5.0, speed_mps: 8.0}
+    scenarios:
+      # Easy positive-WEZ basin (45%): begin behind a slower target.
+      - {name: wez_tail_600, weight: 5.0, ownship: [1000, 0, -4500, 0, 0, 0, 265], target: [1600, 0, -4500, 0, 0, 0, 235]}
+      - {name: wez_tail_850_r, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1840, 74, -4450, 0, 0, 8, 240]}
+      - {name: wez_tail_850_l, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1840, -74, -4550, 0, 0, -8, 240]}
+      # Intermediate tracking basin (30%): preserve earlier samples while adding turn/vertical demand.
+      - {name: track20_r, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1940, 342, -4400, 0, 0, 35, 245]}
+      - {name: track20_l, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1940, -342, -4600, 0, 0, -35, 245]}
+      - {name: track45_vertical, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1849, 849, -4200, 0, 0, 70, 250]}
+      # Hard/live transfer basin (25%): exact competition starts remain present but do not dominate.
+      - {name: live0_headon, weight: 1.5, ownship: [1000, 0, -4500, 0, 0, 0, 255], target: [1760, 0, -4500, 0, 0, 180, 255]}
+      - {name: live91_right, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1000, 760, -4500, 0, 0, 90, 250]}
+      - {name: live91_left, weight: 1.5, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1000, -760, -4500, 0, 0, -90, 250]}
+
+algo:
+  name: sac
+  framework: torch
+  lr: 5.0e-6
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.003
+  target_entropy: auto
+  replay_buffer_capacity: 16000
+  mlp: {enabled: true, fcnet_hiddens: [256, 256], fcnet_activation: tanh, head_fcnet_hiddens: [], head_fcnet_activation: relu}
+
+runtime:
+  iterations: 40
+  seed: 26082417
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  init_bundle: artifacts/models/highdream/altitude_attack_followup_v1_stage6obs19_v8_angle090_opp055_50iter_C10
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 10
+  save_native_checkpoint: true
+  native_checkpoint_frequency: 10
+
+dashboard: {enabled: false}
+policy_probe: {enabled: false}
+engagement_log: {enabled: false}
+notes: "40-iteration single-SAC interleaved attack curriculum. Easy WEZ examples remain in replay while 20/45/0/91-degree geometry and diverse opponents are introduced; original v8 is frozen."

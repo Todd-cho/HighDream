@@ -1,0 +1,34 @@
+{
+  "checkpoint": "C:\\AIP\\Release_v2_altitude\\Release_v2\\artifacts\\checkpoints\\highdream\\residual_w56_gain15_wezcurr_200iter_seed01\\checkpoint_000050",
+  "episodes": 8,
+  "results": [
+    {
+      "crash_rate": 0.0,
+      "draw_rate": 0.125,
+      "episodes": 8,
+      "loss_rate": 0.0,
+      "mean_damage_exchange": 0.8879902081802871,
+      "mean_ownship_health_loss": 0.0005474657112113368,
+      "mean_target_health_loss": 0.8885376738914984,
+      "name": "pitch25",
+      "pitch": 0.25,
+      "roll": 0.15,
+      "throttle": 0.15,
+      "win_rate": 0.875
+    },
+    {
+      "crash_rate": 0.0,
+      "draw_rate": 0.125,
+      "episodes": 8,
+      "loss_rate": 0.0,
+      "mean_damage_exchange": 0.8855908184503207,
+      "mean_ownship_health_loss": 0.0005474657112113368,
+      "mean_target_health_loss": 0.8861382841615321,
+      "name": "baseline_15_20_15",
+      "pitch": 0.2,
+      "roll": 0.15,
+      "throttle": 0.15,
+      "win_rate": 0.875
+    }
+  ]
+}

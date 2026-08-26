@@ -1,0 +1,145 @@
+name: residual_w56_gain15_wezcurr_200iter
+script: train_rllib
+
+output:
+  name: highdream
+  tag: residual_w56_gain15_wezcurr_200iter_seed01
+
+env:
+  target_mode: opponent_pool
+  reward_module: student.my_reward_residual_w56_v1
+  max_engage_time: 40.0
+  episode_step_limit: 400
+
+env_config:
+  residual_w56_enabled: true
+  step_ratio: 6
+  safety_override_enabled: true
+  reward:
+    altitude_soft_floor_m: 2400.0
+    altitude_hard_floor_m: 1200.0
+  opponent_pool_seed: 26082301
+  opponent_pool:
+    common:
+      cruise_altitude_m: 3048.0
+      cruise_speed_kcas: 260.0
+      max_bank_deg: 70.0
+      max_pitch_deg: 25.0
+    behaviors:
+      - type: straight_level
+        weight: 1.0
+      - type: steady_turn
+        weight: 1.0
+      - type: scripted_pursuit
+        weight: 1.0
+      - type: vertical_weave
+        weight: 1.0
+  residual_w56:
+    max_roll_scale: 0.15
+    max_pitch_scale: 0.20
+    max_throttle_scale: 0.15
+    gate_ata_deg: 20.0
+    gate_range_m: 3000.0
+    gate_min_threat_ata_deg: 40.0
+    w56_overrides:
+      terminal_pitch_los_rate_gain: 1.5
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization:
+      enabled: true
+      radius: 35.0
+      r_roll: 5.0
+      r_pitch: 3.0
+      r_heading: 2.0
+      speed_mps: 6.0
+    target_randomization:
+      enabled: true
+      radius: 35.0
+      r_roll: 8.0
+      r_pitch: 4.0
+      r_heading: 5.0
+      speed_mps: 8.0
+    scenarios:
+      - name: wez_right_range650
+        weight: 2.0
+        ownship: [1000.0, 0.0, -3048.0, 0.0, 0.0, 0.0, 255.0]
+        target: [1650.0, 0.0, -3048.0, 0.0, 0.0, 90.0, 245.0]
+      - name: wez_right_range800
+        weight: 3.0
+        ownship: [1000.0, 0.0, -3048.0, 0.0, 0.0, 0.0, 260.0]
+        target: [1800.0, 0.0, -3048.0, 0.0, 0.0, 90.0, 250.0]
+      - name: wez_right_range1000_high
+        weight: 2.0
+        ownship: [1000.0, 0.0, -3048.0, 0.0, 0.0, 0.0, 255.0]
+        target: [2000.0, 0.0, -2998.0, 0.0, 0.0, 90.0, 250.0]
+      - name: track_right_ata6_range1200
+        weight: 1.2
+        ownship: [1000.0, 0.0, -3048.0, 0.0, 0.0, 0.0, 260.0]
+        target: [2193.4, 125.4, -3048.0, 5.0, 0.0, 95.0, 250.0]
+      - name: track_left_range900
+        weight: 0.8
+        ownship: [1000.0, 0.0, -3048.0, 0.0, 0.0, 0.0, 255.0]
+        target: [1900.0, 0.0, -3098.0, 0.0, 0.0, 270.0, 250.0]
+      - name: recovery_ata12_range1600
+        weight: 1.0
+        ownship: [1000.0, 0.0, -3048.0, 10.0, 3.0, 0.0, 255.0]
+        target: [2565.0, 332.7, -2998.0, -10.0, -3.0, 105.0, 255.0]
+  holdout_initial_scenario:
+    mode: two_circle_headon_mix
+    alpha_deg_choices: [0.0, 91.0]
+    alpha_deg_weights: [0.5, 0.5]
+    center_n_m: 3500.0
+    altitude_m: 3048.0
+    turn_diameter_ft: 6000.0
+    separation_jitter_ft: [3000.0, 6000.0]
+    speed_mps_range: [230.0, 280.0]
+    roll_range_deg: [0.0, 20.0]
+    vertical_pitch_choices_deg: [0.0, 10.0, -10.0]
+
+algo:
+  name: sac
+  framework: torch
+  lr: 3.0e-4
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 10000
+  mlp:
+    enabled: true
+    fcnet_hiddens: [256, 256]
+    fcnet_activation: relu
+    head_fcnet_hiddens: []
+    head_fcnet_activation: relu
+
+runtime:
+  iterations: 200
+  seed: 26082301
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 25
+  save_native_checkpoint: true
+  native_checkpoint_frequency: 25
+
+holdout_eval:
+  enabled: true
+  episodes: 8
+  max_engage_time: 180.0
+  seed: 990000001
+
+residual_auto_abort: true
+
+dashboard:
+  enabled: false
+
+policy_probe:
+  enabled: false
+
+engagement_log:
+  enabled: false
+
+notes: "W56 gain=1.5 Stage-1 WEZ curriculum. Log-driven changes: start-altitude-compatible safety floors and 70% successful right-crossing basin with geometric variants; independent 0/91deg holdout."

@@ -1,0 +1,24 @@
+{
+  "checkpoint": "C:\\AIP\\Release_v2_altitude\\Release_v2\\artifacts\\checkpoints\\highdream\\residual_w56_stage2_broaden_100iter_seed01\\checkpoint_000025",
+  "episodes": 8,
+  "results": [
+    {
+      "crash_rate": 0.0,
+      "draw_rate": 0.125,
+      "episodes": 8,
+      "gate_ata_deg": 20.0,
+      "gate_min_threat_ata_deg": 40.0,
+      "gate_range_m": 3000.0,
+      "loss_rate": 0.0,
+      "mean_damage_exchange": 0.8801943236256997,
+      "mean_ownship_health_loss": 0.0005474657112113368,
+      "mean_target_health_loss": 0.8807417893369109,
+      "name": "pitch25",
+      "pitch": 0.25,
+      "roll": 0.15,
+      "terminal_pitch_los_rate_gain": 1.5,
+      "throttle": 0.15,
+      "win_rate": 0.875
+    }
+  ]
+}

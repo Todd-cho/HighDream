@@ -1,0 +1,10 @@
+{
+  "server_ip": "127.0.0.1",
+  "server_port": 9999,
+  "team_name": "HighDream",
+  "multiprocess_transport": true,
+  "safety_override": true,
+  "action_repeat": 1,
+  "log_csv": "logs/HighDream_live.csv",
+  "damage_log_csv": "logs/HighDream_damage_raw.csv"
+}
