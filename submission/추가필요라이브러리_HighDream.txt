@@ -1,0 +1,7 @@
+HighDream.exe 실행에는 별도 Python 라이브러리 또는 플러그인 설치가 필요하지 않습니다.
+
+운영체제: Windows 10/11 64-bit
+네트워크: 주최 측 Unreal BattleServer와 UDP 통신 가능해야 함
+설정: HighDream_config.json에서 server_ip 및 server_port 수정
+
+프로젝트 전체 ZIP의 소스를 직접 실행하는 경우에만 Python 3.11과 requirements.txt 패키지가 필요합니다.

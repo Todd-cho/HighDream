@@ -1,0 +1,109 @@
+name: rl8_livepool_precision_20iter
+script: train_rllib
+
+output:
+  name: highdream
+  tag: rl8_livepool_precision_20iter_seed01
+
+env:
+  observation_mode: tactical19
+  target_mode: opponent_pool
+  reward_module: student.my_reward_delta_v1_wez_proximity
+  max_engage_time: 40.0
+  episode_step_limit: 400
+
+env_config:
+  step_ratio: 6
+  safety_override_enabled: true
+  opponent_pool_seed: 26082411
+  opponent_pool:
+    common: {cruise_altitude_m: 4500.0, cruise_speed_kcas: 260.0, max_bank_deg: 75.0, max_pitch_deg: 30.0}
+    behaviors:
+      - {type: straight_level, weight: 0.5, ranges: {cruise_speed_kcas: [225.0, 295.0]}}
+      - {type: steady_turn, weight: 2.5, ranges: {turn_bank_deg: [35.0, 72.0]}}
+      - {type: scripted_pursuit, weight: 2.5, ranges: {cruise_speed_kcas: [235.0, 295.0]}}
+      - {type: vertical_weave, weight: 2.0, ranges: {weave_amplitude_m: [250.0, 700.0], weave_period_s: [6.0, 15.0]}}
+  reward:
+    step_penalty: -0.0015
+    survival_bonus: 0.0
+    too_close_m: 460.0
+    ideal_range_min_m: 450.0
+    ideal_range_max_m: 1100.0
+    altitude_soft_floor_m: 1800.0
+    altitude_hard_floor_m: 900.0
+    low_altitude_penalty: 1.5
+    very_low_altitude_penalty: 4.0
+    roll_limit_deg: 80.0
+    roll_limit_penalty: 0.25
+    pitch_down_limit_deg: -12.0
+    pitch_down_penalty: 1.4
+    attack_range_min_m: 250.0
+    attack_range_max_m: 2200.0
+    far_range_penalty_start_m: 3000.0
+    win_reward: 100.0
+    loss_reward: -100.0
+    draw_reward: -30.0
+    crash_penalty: -300.0
+    pursuit_heading_scale: 0.20
+    ata_precision_scale: 1.4
+    ata_precision_width_deg: 5.0
+    range_scale: 2.0
+    overshoot_penalty: 4.0
+    overshoot_quadratic_scale: 1.5
+    inside_min_range_penalty: -3.0
+    ata_scale: 0.12
+    aa_scale: 0.03
+    wez_bonus: 1.0
+    damage_scale: 35.0
+    attack_range_bonus: 0.8
+    far_range_penalty: 0.9
+    range_delta_scale: 0.025
+    ata_delta_scale: 0.12
+    wez_proximity_scale: 0.45
+    wez_proximity_use_aa: false
+    wez_hold_scale: 0.18
+    wez_hold_quality_threshold: 0.45
+    wez_hold_growth_per_step: 0.06
+    wez_hold_growth_cap_steps: 15
+    wez_hold_break_penalty_scale: 0.025
+    wez_hold_break_min_streak: 6
+  initial_scenario:
+    mode: scenario_pool
+    ownship_randomization: {enabled: true, radius: 80.0, r_roll: 8.0, r_pitch: 5.0, r_heading: 8.0, speed_mps: 12.0}
+    target_randomization: {enabled: true, radius: 100.0, r_roll: 12.0, r_pitch: 8.0, r_heading: 12.0, speed_mps: 15.0}
+    scenarios:
+      - {name: live91_right, weight: 3.0, ownship: [1000, 0, -4500, 0, 0, 0, 260], target: [1000, 760, -4500, 0, 0, 90, 250]}
+      - {name: live91_left, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 255], target: [1000, -760, -4500, 0, 0, -90, 260]}
+      - {name: headon0, weight: 2.0, ownship: [1000, 0, -4500, 0, 0, 0, 255], target: [1760, 0, -4500, 0, 0, 180, 255]}
+      - {name: vertical91_high, weight: 1.5, ownship: [1000, 0, -4500, 0, 0, 0, 250], target: [1000, 900, -4100, 10, 0, 90, 265]}
+      - {name: vertical91_low, weight: 1.5, ownship: [1000, 0, -4500, 0, 0, 0, 265], target: [1000, -900, -4900, -10, 0, -90, 245]}
+
+algo:
+  name: sac
+  framework: torch
+  lr: 5.0e-5
+  gamma: 0.99
+  train_batch_size: 256
+  minibatch_size: 256
+  tau: 0.005
+  target_entropy: auto
+  replay_buffer_capacity: 20000
+  mlp: {enabled: true, fcnet_hiddens: [256, 256], fcnet_activation: tanh, head_fcnet_hiddens: [], head_fcnet_activation: relu}
+
+runtime:
+  iterations: 20
+  seed: 26082411
+  num_env_runners: 1
+  num_envs_per_env_runner: 1
+  rollout_fragment_length: auto
+  batch_mode: truncate_episodes
+  init_bundle: artifacts/models/highdream/altitude_attack_followup_v1_stage6obs19_v8_angle090_opp055_50iter_C10
+  save_lightweight_bundle: true
+  lightweight_bundle_frequency: 5
+  save_native_checkpoint: true
+  native_checkpoint_frequency: 5
+
+dashboard: {enabled: false}
+policy_probe: {enabled: false}
+engagement_log: {enabled: false}
+notes: "Emergency v8 continuation: diverse live-like opponent pool, coupled WEZ hold, low LR; original v8 remains frozen."

@@ -133,6 +133,27 @@ MY_REWARD_CONFIG = {
     "lead_pursuit_scale": 0.0,
     "lead_pursuit_horizon_steps": 20,
     "lead_pursuit_velocity_clip_m": 40.0,
+    # New (2026-08-25): adverse-angle (threat_ata) penalty, ported from
+    # DARPA AlphaDogfight Trials' PHANG-MAN reward design (Heron Systems,
+    # arxiv 2105.00990) -- their r_phi_a = -phi_bar_a term, penalizing the
+    # OPPONENT's angle-off-tail to US, mirrored here as threat_ata (same
+    # geometry this project's terminal_stabilizer.py already logs: swap
+    # ownship/target into _get_antenna_train_angle). Motivation: every
+    # existing angle term in this file (ata/ata_precision/aa/pursuit_heading/
+    # lead_pursuit) rewards OUR aim on THEM -- none has ever penalized
+    # THEM aiming at US. Confirmed missing via three live losses in one
+    # session (2026-08-25): the enemy repeatedly held threat_ata<=6deg for
+    # 11-54s per match while ownship took no evasive action at all, because
+    # nothing in training ever taught it that was bad. Every live rule
+    # patch attempted that session for defense (hard override, break turns)
+    # either did nothing (never engaged) or actively regressed (overrode
+    # energy management into a near-stall). This is the training-side
+    # alternative: same linear shape as the existing "ata" term
+    # (1 - threat_ata/90), so it's exactly as strong a training signal, but
+    # NEGATIVE (being aimed at is bad) instead of positive. 0.0 by default
+    # (opt-in) -- must be validated (JSBSim first, rule 15) before being
+    # treated as anything but experimental.
+    "threat_ata_scale": 0.0,
 }
 
 
@@ -226,6 +247,12 @@ def compute_reward(
     else:
         components["ata_precision"] = 0.0
     components["aa"] = float(cfg["aa_scale"]) * max(-1.0, 1.0 - aa / 180.0)
+    threat_ata_scale = float(cfg.get("threat_ata_scale", 0.0))
+    if threat_ata_scale != 0.0:
+        threat_ata = abs(float(geo_info._get_antenna_train_angle(target_state, ownship_state, False)))
+        components["threat_ata"] = -threat_ata_scale * max(-1.0, 1.0 - threat_ata / 90.0)
+    else:
+        components["threat_ata"] = 0.0
     # Graduated WEZ bonus (2026-08-19, replaces the old Phase-1-only binary
     # check): the competition's own 3-phase damage cone (Phase1 LOS<1deg
     # coeff1.0, Phase2 LOS<2deg coeff0.3, Phase3 LOS<3deg coeff0.1 -- see

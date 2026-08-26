@@ -84,6 +84,22 @@ def parse_args() -> argparse.Namespace:
         "--pc-turn-sign-flip-deg", type=float, default=None,
         help="P7: override PursuitControllerConfig.turn_sign_flip_deg (default 20.0).",
     )
+    parser.add_argument(
+        "--pc-omnidirectional-bank", action="store_true",
+        help="2026-08-25: bank = atan2(los_az, los_el) instead of az-only, so pull can go up/down too.",
+    )
+    parser.add_argument(
+        "--pc-rule-weight-far", type=float, default=None,
+        help="Override PursuitControllerConfig.rule_weight_far (default 0.95). Use 1.0 for a hard handoff.",
+    )
+    parser.add_argument(
+        "--pc-rule-weight-fine", type=float, default=None,
+        help="Override PursuitControllerConfig.rule_weight_fine (default 0.65). Use 0.0 for pure/unblended RL when locked on.",
+    )
+    parser.add_argument(
+        "--pc-fine-ata-deg", type=float, default=None,
+        help="Override PursuitControllerConfig.fine_ata_deg (default 8.0) -- the RL comfort-zone boundary.",
+    )
     return parser.parse_args()
 
 
@@ -117,6 +133,10 @@ def main() -> int:
             ablation_bits.append("p6")
         if args.pc_turn_sign_flip_deg is not None:
             ablation_bits.append("p7")
+        if args.pc_omnidirectional_bank:
+            ablation_bits.append("omni")
+        if args.pc_rule_weight_far is not None or args.pc_rule_weight_fine is not None:
+            ablation_bits.append("hardoff")
         suffix = "pc" + ("_" + "_".join(ablation_bits) if ablation_bits else "_p0")
     else:
         suffix = "plain" if args.plain else "tactical_wrapper"
@@ -155,6 +175,13 @@ def main() -> int:
         pc_kwargs["turn_pull_priority_gate"] = args.pc_turn_pull_priority_gate
         if args.pc_turn_sign_flip_deg is not None:
             pc_kwargs["turn_sign_flip_deg"] = args.pc_turn_sign_flip_deg
+        pc_kwargs["omnidirectional_bank"] = args.pc_omnidirectional_bank
+        if args.pc_rule_weight_far is not None:
+            pc_kwargs["rule_weight_far"] = args.pc_rule_weight_far
+        if args.pc_rule_weight_fine is not None:
+            pc_kwargs["rule_weight_fine"] = args.pc_rule_weight_fine
+        if args.pc_fine_ata_deg is not None:
+            pc_kwargs["fine_ata_deg"] = args.pc_fine_ata_deg
         pc_config = PursuitControllerConfig(**pc_kwargs)
         ownship_provider = PursuitControllerActionProvider(rl_provider, pc_config)
     else:

@@ -46,13 +46,14 @@ def parse_args():
     parser._option_string_actions["--mode"].choices.append("w110")
     parser._option_string_actions["--mode"].choices.append("w111")
     parser._option_string_actions["--mode"].choices.append("w112")
-    parser._option_string_actions["--mode"].choices.append("w113")
+    parser._option_string_actions["--mode"].choices.extend(("w113", "w114", "w115", "w116", "w117", "w118", "w119", "w120", "w121", "w122", "w123", "w124", "w125"))
     parser._option_string_actions["--mode"].choices.append("ep1")
     parser._option_string_actions["--mode"].choices.append("ep2")
     parser._option_string_actions["--mode"].choices.append("ep3")
     parser._option_string_actions["--mode"].choices.append("w97rl90")
     parser._option_string_actions["--mode"].choices.append("w103rl")
     parser._option_string_actions["--mode"].choices.append("w100rl")
+    parser._option_string_actions["--mode"].choices.append("w119rl1500")
     parser.add_argument(
         "--pulse-sequence",
         choices=["roll", "pitch", "pitch_trim", "roll_inertia", "yaw"],
@@ -154,6 +155,81 @@ def parse_args():
             "close-range axis/throttle stabilization after ATA<=22deg."
         ),
     )
+    parser.add_argument(
+        "--ts-enter-ata-deg", type=float, default=None,
+        help="Override TerminalStabilizerConfig.enter_ata_deg (default 22.0). 2026-08-25 JSBSim A/B: 45.0 improved win 96.7%%->100%%, wez_rate 96.7%%->100%%.",
+    )
+    parser.add_argument(
+        "--ts-exit-ata-deg", type=float, default=None,
+        help="Override TerminalStabilizerConfig.exit_ata_deg (default 35.0).",
+    )
+    parser.add_argument(
+        "--ts-enter-distance-m", type=float, default=None,
+        help="Override TerminalStabilizerConfig.enter_distance_m (default 2200.0). 2026-08-25 JSBSim A/B used 3000.0.",
+    )
+    parser.add_argument(
+        "--ts-exit-distance-m", type=float, default=None,
+        help="Override TerminalStabilizerConfig.exit_distance_m (default 3000.0). 2026-08-25 JSBSim A/B used 3800.0.",
+    )
+    parser.add_argument(
+        "--ts-roll-commit-enabled", action="store_true",
+        help=(
+            "Freeze roll_cmd to its previous value during raw acquisition when RL "
+            "tries to flip sign but LOS az hasn't itself crossed deadband+hysteresis "
+            "-- addresses a live-observed failure (150 roll sign flips/200s, median "
+            "0.52s apart) without overriding RL's magnitude/pitch/yaw/throttle. "
+            "Not yet live-verified as of 2026-08-25 -- validate in JSBSim first."
+        ),
+    )
+    parser.add_argument("--ts-roll-commit-deadband-deg", type=float, default=None)
+    parser.add_argument("--ts-roll-commit-hysteresis-deg", type=float, default=None)
+    parser.add_argument(
+        "--ts-energy-throttle-floor-enabled", action="store_true",
+        help=(
+            "Force min throttle during acquisition when own speed is under corner_speed_mps "
+            "(220.0 default) -- does not touch roll/pitch/yaw. 2026-08-25: live log showed "
+            "own speed averaged 202.1 m/s vs opponent's 291.7 m/s (66%% vs 9%% of time under "
+            "corner speed). Not yet live-verified -- validate in JSBSim first."
+        ),
+    )
+    parser.add_argument("--ts-corner-speed-mps", type=float, default=None)
+    parser.add_argument("--ts-energy-throttle-floor", type=float, default=None)
+    parser.add_argument(
+        "--ts-energy-pitch-unload-enabled", action="store_true",
+        help=(
+            "Cap pull magnitude (never touches push/nose-down) when own speed is well under "
+            "corner speed -- throttle alone can't out-accelerate max-AoA drag "
+            "(flyonspeed.org/basic-energy-management). Not yet live-verified."
+        ),
+    )
+    parser.add_argument("--ts-energy-pitch-unload-deficit-mps", type=float, default=None)
+    parser.add_argument("--ts-energy-pitch-unload-cap", type=float, default=None)
+    parser.add_argument(
+        "--ts-energy-pitch-scale-enabled", action="store_true",
+        help=(
+            "Smooth (continuous) pull taper as speed drops below corner speed, instead of "
+            "energy-pitch-unload's hard on/off cap -- that hard cap live-tested worse (twice) "
+            "than the plain roll_commit+energy_throttle_floor baseline with no pitch limiting "
+            "at all (this project's best live result, 100:99 near-win). Use instead of, not "
+            "together with, --ts-energy-pitch-unload-enabled. Not yet live-verified."
+        ),
+    )
+    parser.add_argument("--ts-energy-pitch-scale-deficit-mps", type=float, default=None)
+    parser.add_argument("--ts-energy-pitch-scale-floor", type=float, default=None)
+    parser.add_argument(
+        "--ts-defensive-break-enabled", action="store_true",
+        help=(
+            "Hard override (beats acquisition/terminal/energy-management entirely): when the "
+            "enemy holds a good angle on us (threat_ata<=30deg default, range<=2000m default), "
+            "bank TOWARD their LOS at max roll/pitch authority -- standard defensive-BFM break "
+            "turn (turning into the attacker denies turning room, forces an overshoot). "
+            "2026-08-25: added after a live loss where the enemy held threat_ata<=6deg for "
+            "~53.6s of a 183s flight with zero defensive reaction (nothing in this codebase had "
+            "ever implemented defense before). Not yet live-verified."
+        ),
+    )
+    parser.add_argument("--ts-defensive-break-threat-ata-deg", type=float, default=None)
+    parser.add_argument("--ts-defensive-break-range-m", type=float, default=None)
     parser.add_argument(
         "--pursuit-controller",
         action="store_true",
@@ -278,6 +354,111 @@ def build_action_provider(args):
     # configuration path so future W56-family settings cannot accidentally
     # diverge, then override only the measured terminal vertical-rate gain.
     requested_mode = args.mode
+
+    if requested_mode == "w124":
+        from dogfight.ai.measured_envelope_controller import MaxRateTurnActionProvider
+        base_args = copy.copy(args)
+        base_args.mode = "w122"
+        return MaxRateTurnActionProvider(build_action_provider(base_args))
+
+    if requested_mode == "w125":
+        from dogfight.ai.measured_envelope_controller import (
+            PostMergePullBoostActionProvider,
+        )
+        base_args = copy.copy(args)
+        base_args.mode = "w41"
+        return PostMergePullBoostActionProvider(build_action_provider(base_args))
+
+    if requested_mode == "w119rl1500":
+        if args.bundle_dir is None:
+            raise ValueError("--bundle-dir is required for w119rl1500 mode")
+        from dogfight.ai.measured_envelope_controller import (
+            DistanceHandoffActionProvider,
+        )
+        base_args = copy.copy(args)
+        base_args.mode = "w119"
+        rule_provider = build_action_provider(base_args)
+        rl_provider = RLActionProvider(
+            bundle_dir=args.bundle_dir,
+            algorithm_factory=build_algorithm_from_bundle,
+            policy_id=args.policy_id,
+            explore=args.explore,
+        )
+        return DistanceHandoffActionProvider(rule_provider, rl_provider)
+
+    if requested_mode in ("w115", "w116", "w117", "w118", "w119", "w120", "w121"):
+        # Full measured correction: retain W100 attack geometry, use a
+        # bounded one-second constant-turn cut, and correct the live roll and
+        # 205--220m/s energy envelope in one exclusive-axis wrapper.
+        from dogfight.ai.measured_envelope_controller import MeasuredEnvelopeController
+        base_args = copy.copy(args)
+        base_args.mode = "w100"
+        controller = build_action_provider(base_args)
+        controller.cfg.use_constant_turn_prediction = True
+        controller.cfg.adaptive_turn_prediction = True
+        controller.cfg.turn_prediction_max_arc_deg = 15.0
+        controller.cfg.turn_prediction_unstable_horizon_s = 0.20
+        controller.cfg.turn_prediction_min_stable_s = 0.50
+        controller.cfg.horizon_merge_s = 0.20
+        controller.cfg.horizon_break_s = 0.80
+        controller.cfg.horizon_reacquire_max_s = 1.20
+        controller.cfg.horizon_track_max_s = 0.45
+        controller.cfg.horizon_weapons_s = 0.10
+        # W100's 195m/s high-bank schedule caused the measured 10.3deg/s
+        # plateau.  The wrapper owns throttle, but keep the base controller's
+        # internal target consistent for diagnostics and transient frames.
+        controller.cfg.high_bank_target_speed_mps = 210.0
+        controller.cfg.lag_pursuit_energy_target_speed_mps = 210.0
+        return MeasuredEnvelopeController(controller, name=requested_mode)
+
+    if requested_mode == "w122":
+        # W41's live log (run0095, 2026-08-26) showed ATA fall smoothly
+        # through 0.1deg and straight back out -- W41/W42 are the only
+        # modes in the W14-W56 family with terminal_track_enter_ata_deg
+        # forced to 0.0 (never entered), so nothing ever nulls the LOS
+        # rate once ATA gets small. Reuse W41 unchanged (its vertical
+        # opening/lag-pursuit law is untouched) and bolt on exactly W44's
+        # terminal_track entry window -- W44/W45 don't override the gain
+        # fields either, so this reproduces W44's terminal_track behavior
+        # verbatim on top of W41's geometry instead of guessing new gains.
+        base_args = copy.copy(args)
+        base_args.mode = "w41"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w122"
+        controller.cfg.terminal_track_enter_ata_deg = 8.0
+        controller.cfg.terminal_track_exit_ata_deg = 12.0
+        controller.cfg.terminal_track_enter_range_m = 1600.0
+        controller.cfg.terminal_track_exit_range_m = 1900.0
+        return controller
+
+    if requested_mode == "w123":
+        # W122's live log (2026-08-26) confirmed terminal_track_active
+        # never once fired in 2003 frames: every time ATA dipped under
+        # W44's 8deg entry threshold (min observed 1.19deg), distance was
+        # 2330-2690m -- outside W44's 1600m entry range, which was tuned
+        # for a much closer engagement than W41's actual opening geometry
+        # produces. Widen only the range gate to the window already used
+        # by turn_match (3000/3400m enter/exit) elsewhere in this same
+        # config family; leave the ATA thresholds exactly as W122 set
+        # them so this isolates the one variable that measurably blocked
+        # entry.
+        base_args = copy.copy(args)
+        base_args.mode = "w41"
+        controller = build_action_provider(base_args)
+        controller.cfg.controller_name = "w123"
+        controller.cfg.terminal_track_enter_ata_deg = 8.0
+        controller.cfg.terminal_track_exit_ata_deg = 12.0
+        controller.cfg.terminal_track_enter_range_m = 3000.0
+        controller.cfg.terminal_track_exit_range_m = 3400.0
+        return controller
+
+    if requested_mode == "w114":
+        # Preserve W100's best live bank/geometry path and add only the
+        # measured speed/pull envelope with explicit per-axis ownership.
+        from dogfight.ai.measured_envelope_controller import MeasuredEnvelopeController
+        base_args = copy.copy(args)
+        base_args.mode = "w100"
+        return MeasuredEnvelopeController(build_action_provider(base_args))
 
     if requested_mode == "w97rl90":
         if args.bundle_dir is None:
@@ -2416,7 +2597,46 @@ def build_action_provider(args):
                 TerminalStabilizerActionProvider,
                 TerminalStabilizerConfig,
             )
-            return TerminalStabilizerActionProvider(rl_provider, TerminalStabilizerConfig())
+            ts_kwargs = {}
+            if args.ts_enter_ata_deg is not None:
+                ts_kwargs["enter_ata_deg"] = args.ts_enter_ata_deg
+            if args.ts_exit_ata_deg is not None:
+                ts_kwargs["exit_ata_deg"] = args.ts_exit_ata_deg
+            if args.ts_enter_distance_m is not None:
+                ts_kwargs["enter_distance_m"] = args.ts_enter_distance_m
+            if args.ts_exit_distance_m is not None:
+                ts_kwargs["exit_distance_m"] = args.ts_exit_distance_m
+            if args.ts_roll_commit_enabled:
+                ts_kwargs["roll_commit_enabled"] = True
+            if args.ts_roll_commit_deadband_deg is not None:
+                ts_kwargs["roll_commit_deadband_deg"] = args.ts_roll_commit_deadband_deg
+            if args.ts_roll_commit_hysteresis_deg is not None:
+                ts_kwargs["roll_commit_hysteresis_deg"] = args.ts_roll_commit_hysteresis_deg
+            if args.ts_energy_throttle_floor_enabled:
+                ts_kwargs["energy_throttle_floor_enabled"] = True
+            if args.ts_corner_speed_mps is not None:
+                ts_kwargs["corner_speed_mps"] = args.ts_corner_speed_mps
+            if args.ts_energy_throttle_floor is not None:
+                ts_kwargs["energy_throttle_floor"] = args.ts_energy_throttle_floor
+            if args.ts_energy_pitch_unload_enabled:
+                ts_kwargs["energy_pitch_unload_enabled"] = True
+            if args.ts_energy_pitch_unload_deficit_mps is not None:
+                ts_kwargs["energy_pitch_unload_deficit_mps"] = args.ts_energy_pitch_unload_deficit_mps
+            if args.ts_energy_pitch_unload_cap is not None:
+                ts_kwargs["energy_pitch_unload_cap"] = args.ts_energy_pitch_unload_cap
+            if args.ts_energy_pitch_scale_enabled:
+                ts_kwargs["energy_pitch_scale_enabled"] = True
+            if args.ts_energy_pitch_scale_deficit_mps is not None:
+                ts_kwargs["energy_pitch_scale_deficit_mps"] = args.ts_energy_pitch_scale_deficit_mps
+            if args.ts_energy_pitch_scale_floor is not None:
+                ts_kwargs["energy_pitch_scale_floor"] = args.ts_energy_pitch_scale_floor
+            if args.ts_defensive_break_enabled:
+                ts_kwargs["defensive_break_enabled"] = True
+            if args.ts_defensive_break_threat_ata_deg is not None:
+                ts_kwargs["defensive_break_threat_ata_deg"] = args.ts_defensive_break_threat_ata_deg
+            if args.ts_defensive_break_range_m is not None:
+                ts_kwargs["defensive_break_range_m"] = args.ts_defensive_break_range_m
+            return TerminalStabilizerActionProvider(rl_provider, TerminalStabilizerConfig(**ts_kwargs))
         return rl_provider
 
     bt_provider = BTActionProvider(dll_name=args.bt_dll)

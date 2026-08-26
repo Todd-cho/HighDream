@@ -96,6 +96,15 @@ class PursuitControllerConfig:
     vspeed_hard_mps: float = 40.0
     turn_pull_scale_delta_limit: float = 0.08
 
+    # 2026-08-25: bank law generalized to 2-D LOS (az AND el) instead of az
+    # alone, so a target well above/below the nose gets pulled toward
+    # directly (bank = atan2(az, el)) instead of being flattened into a
+    # horizontal-only turn. Uses the same "commit, only flip on a confident
+    # reversal" hysteresis as the az-only turn_sign law above, generalized
+    # to the full signed bank angle. rule_weight_far/rule_weight_fine let
+    # the caller turn this into a hard handoff (1.0/0.0) instead of a blend.
+    omnidirectional_bank: bool = False
+
 
 class PursuitControllerActionProvider(ActionProvider):
     """Rule-guided pursuit with a learned-policy fine-tracking blend."""
@@ -111,6 +120,7 @@ class PursuitControllerActionProvider(ActionProvider):
         self._turn_pull_scale = 1.0
         self._roll_cmd = 0.0
         self._pitch_cmd = 0.0
+        self._bank_commit: float | None = None
         self.state_log: list[str] = []
         self.info_log: list[dict] = []
 
@@ -123,6 +133,7 @@ class PursuitControllerActionProvider(ActionProvider):
         self._turn_pull_scale = 1.0
         self._roll_cmd = 0.0
         self._pitch_cmd = 0.0
+        self._bank_commit = None
         self.state_log = []
         self.info_log = []
 
@@ -158,13 +169,27 @@ class PursuitControllerActionProvider(ActionProvider):
             desired_sign = self._turn_sign
 
         max_bank_deg = cfg.turn_pull_max_bank_deg if cfg.turn_pull_decomposition else cfg.max_bank_deg
-        az_fraction = float(np.clip(abs(az) / cfg.full_bank_az_deg, 0.0, 1.0))
-        target_bank_mag = cfg.min_turn_bank_deg + az_fraction * (
-            max_bank_deg - cfg.min_turn_bank_deg
-        )
-        if ata <= cfg.fine_ata_deg:
-            target_bank_mag *= float(np.clip(ata / cfg.fine_ata_deg, 0.0, 1.0))
-        target_bank = self._turn_sign * target_bank_mag
+        if cfg.omnidirectional_bank:
+            raw_bank = float(np.clip(
+                float(np.degrees(np.arctan2(az, el))), -max_bank_deg, max_bank_deg
+            ))
+            if self._bank_commit is None:
+                self._bank_commit = raw_bank
+            else:
+                delta = _wrap180(raw_bank - self._bank_commit)
+                if abs(delta) >= cfg.turn_sign_flip_deg:
+                    self._bank_commit = raw_bank
+            target_bank = self._bank_commit
+            if ata <= cfg.fine_ata_deg:
+                target_bank *= float(np.clip(ata / cfg.fine_ata_deg, 0.0, 1.0))
+        else:
+            az_fraction = float(np.clip(abs(az) / cfg.full_bank_az_deg, 0.0, 1.0))
+            target_bank_mag = cfg.min_turn_bank_deg + az_fraction * (
+                max_bank_deg - cfg.min_turn_bank_deg
+            )
+            if ata <= cfg.fine_ata_deg:
+                target_bank_mag *= float(np.clip(ata / cfg.fine_ata_deg, 0.0, 1.0))
+            target_bank = self._turn_sign * target_bank_mag
         if cfg.flip_bank_sign:  # P3 ablation
             target_bank = -target_bank
         current_bank = _wrap180(float(own[StateIndex.ROLL]))

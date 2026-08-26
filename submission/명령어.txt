@@ -1,0 +1,10 @@
+[HighDream 실행 방법]
+
+1. HighDream.exe와 HighDream_config.json을 같은 폴더에 둡니다.
+2. HighDream_config.json의 server_ip와 server_port를 경기 서버 값으로 수정합니다.
+3. 서버 실행 후 CMD에서 해당 폴더로 이동하여 실행합니다.
+
+HighDream.exe
+
+기본 설정: pure RL v8 / tactical19 / multiprocess transport / safety override / action-repeat 1
+실행 로그는 EXE 옆 logs 폴더에 저장됩니다. Ctrl+C로 종료합니다.
